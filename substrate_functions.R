@@ -66,21 +66,71 @@ imp.1 = TRUE
 imp.2   = 'impurity'
 test.frac <- 0.6
 
-#----------------------------------------------------------------------------
+#============================================================================
 #-- Functions.   
-#   Results.Row()
-#   Load.Test.Data(), Load.Predictors(), Load.Obs.Data() 
-#   Test.Sample.Size()
-#----------------------------------------------------------------------------
 
 
+#------------------------------------------------
+# Builds a random forest model for the specified region
+# Returns a list with the final model fitted to all the data, 
+# and a summary table of the re-sampled performance statistics.
+# Requires - list of model names
+# Calls    - Results.Row()
+Make.Ranger.Model <- function( x.data, x.formula, partition = 0.7, iterations = 1  ){
+  
+  y <- nrow( x.data )
+  out.table <- NULL
+  
+  for (i in 1:iterations ){
+    
+    #-- build the train/test partition ... 
+    idx <- sample( 1:y, round(partition * y), replace = FALSE )
+    z <- replace( rep(0, y), idx, 1)
+    xx <- cbind(x, 'partition' = z )
+    
+    x.train <- xx[ xx$partition == 1, ]
+    x.test  <- xx[ xx$partition == 0, ]
+    
+    #-- build a weighted model ... 
+    props <- x.train %>% group_by(BType4) %>% count(BType4) 
+    wts <- 1 - ( props$n / sum( props$n ))
+    x.model <- ranger( x.formula,
+                       data = x.train,
+                       num.trees = ntree, replace = repl, importance = imp.2, oob.error = T,
+                       case.weights = wts[ x.train$BType4 ])    #Define case.weights
+    
+    #-- Evaluate with testing partition  ...
+    out.table <- rbind( out.table, Results.Row( x.model, x.test )) 
+    print(i)
+  }
+  
+  #-- Build the model result entry.
+  if (iterations > 1)
+    z <- Summary.Row( out.table[, -1] )
+  else
+    z <- out.table
+  #-- Build the model with all the training data.
+  props <- x.data %>% group_by(BType4) %>% count(BType4) 
+  wts <- 1 - ( props$n / sum( props$n ))
+  x.model <- ranger( x.formula,
+                     data = x.data,
+                     num.trees = ntree, replace = repl, importance = imp.2, oob.error = T,
+                     case.weights = wts[ x.data$BType4 ])    #Define case.weights
+  
+    return( list( 'Stats' = z, 'Model' = x.model ))
+}
+
+       
 #------------------------------------------------------------------------------------
 # Calculate the reporting statistics for an RF model (testModel), 
 # based on a set of observations (testData). 
 # Requires: 
-#   testModel = a weighted RF model built with ranger()
-#   testDat = dataframe with correct predictors and observed BType
-#   testData must have the same predictors attached as those used to build testModel.
+#   testModel: a weighted RF model built with ranger()
+#   testData : dataframe with correct predictors and observed BType
+#    testData must have the same predictors attached as those used to build testModel.
+# Calls:  diffr.Stats()
+#         Prev.Balance()
+#         Wtd.Stats()
 # Returns: a data frame with a single row. suitable for rbind().
 Results.Row <- function( testModel, testData ){
   
@@ -90,27 +140,112 @@ Results.Row <- function( testModel, testData ){
   ber <- BER(testData$BType4, y$predictions)
   prev <- Prev.Balance( summary(testData$BType4) / sum( summary(testData$BType4)) )
   
-  out <- data.frame( 
-    "N"         = nrow(testData),
+  out1 <- data.frame( 
+    "N"         = nrow( testData),
     "Imbalance" = round( prev, mant ), 
-    "Accuracy"  = round( as.numeric( z$overall[ 'Accuracy' ]), mant ),
-    "Kappa"     = round( as.numeric( z$overall[ 'Kappa' ]), mant ), 
-    "BERneg"    = round( 1-ber, mant ), 
     "OOB"       = round( testModel$prediction.error, mant ),
+    "Accuracy"  = round( as.numeric( z$overall[ 'Accuracy' ]), mant ),
+    "BERneg"    = round( 1-ber, mant ), 
+    "TSS"       = TSS.Calc( z$table ),
     round( Wtd.Stats( z ), mant ),
-    round( diffr.Stats( z$table ), mant )
+    round( diffr.Stats( z$table )/nrow(testData), mant )
   )
-  return(out)
+  out2 <- data.frame( 
+    "User"  = round( diag(z$table) / rowSums(z$table), mant ), 
+    "Prod"  = round( diag(z$table) / colSums(z$table), mant ))
+  
+  return( list( 'Integrated' = out1, 'PerClass' = t(out2) ))
 }
+
+
+# #-- Testing Results.Row ...
+# Results.Row( foo$Model, x )
+# y <- predict( foo$Model, x )
+# rows(x)
+# y$predictions
+# z <- caret::confusionMatrix( y$predictions, x$BType4 )
+# z$table
+# dim(x)[[1]]
+# round( diag(z$table/dim(x)[[1]]) / rowSums(z$table/dim(x)[[1]]), 3)
+
+
+#---------------------------------------
+# Summarizes a data.frame of statistics
+# RETURNS mean and standard deviation. 
+Summary.Row <- function( inRes ){
+  
+  x <- round( apply( inRes, 2, mean ), 3)
+  y <- round( apply( inRes, 2, sd ), 4)
+  
+  z <- rbind(x,y)
+  row.names( z ) <- c('Mean', 'StdDev')
+  return( z )
+  
+  #Nice but returns a string
+  #formatC(y, format = "e", digits = 2)
+}
+
+
+#----------------------------------------------------------------
+#-- Calculate the True Skill Statistic for a 4x4 matrix following
+#   Allouche et al. 2006. Applies 2 steps - first calculates the 
+#   Expected correct classifications expected by chance; 
+#   then substracts this from the diagonal values, and reports the 
+#   sum of the diagonal values. 
+# Assumes: 4x4 matrix
+# Takes: a caret contingency table
+# Returns: A single TSS statistic for the entire table.
+# NOTES: Correcting for chance success reduces the sample size on 
+#   the diagonal ... 
+TSS.Calc <- function( cTable ){
+  x <- matrix( cTable, 4,4 )
+
+  # Expected correct predictions by chance (diagonal)
+  E <- rowSums( x ) * colSums( x ) / sum( x )
+  # Correct predictions corrected for success due to chance 
+  R <- diag(x) - E
+  
+  # The diagonal values from a perfect forecast 
+  n.star <- rowSums( x )
+  
+  # Perfect forecast corrected for success due to chance 
+  R.star <- n.star - ( n.star^2/sum(x) )
+    
+  return( round( sum(R) / sum(R.star), 3) )
+    
+}
+
+
+# #-- Testing TSS Calculation ...
+# test <- matrix( c(10,0,0,0, 0,10,0,0, 0,0,10, 0, 0, 0, 0, 10), 4, 4 )
+# test <- matrix( c(.25,0,0,0, 0,.25,0,0, 0,0,.25, 0, 0, 0, 0, .25), 4, 4 )
+# 
+# #-- A simplee bad model ...
+# test <- matrix( c(0,10,0,0, 0,0,0,10, 10,0,0,0, 0,0,10,0), 4, 4 )
+# 
+# #-- Shouldn't these have greater badness?
+# test <- matrix( c(0,100,0,0, 0,0,0,10, 10,0,0,0, 0,0,10,0), 4, 4 )
+# test <- matrix( c(0,33,33,34, 10,0,10,10, 10,10,0,10, 10,10,10,0), 4, 4 )
+# 
+# test
+# TSS.Calc(test)
+# 
+# #-- Random matrix has values around 0 which is good ...
+# test <- matrix( sample(1:100, 16), 4, 4)
+# TSS.Calc(test)
+# 
 
 
 #------------------------------------------------------------------
 #-- Calculate the quantity and allocation components of the matrix.
 #   Uses diffeR package and follows Pontius and Santacruz (2014).
-# Takes: a caret contingency table - 4x4 hard-coded.
+# Assumes: 4x4 matrix
+# Takes: a caret contingency table
 # Returns: A one-row data.frame of named statistics
 # Notes: This will need to be updated based on detailed review of the 
-#   available statistics and of Stehman and Foody (2019).
+#   available statistics and Stehman and Foody (2019).
+#   diffTablej() returns Omission, Agreement, Comission, Quantity, Exchange, and Shift metrics
+#     by classes and overall.
 diffr.Stats <- function( cTable ){
   
   # First need to convert to something called a ctmatrix
@@ -125,17 +260,24 @@ diffr.Stats <- function( cTable ){
 #  y2  <- categoryComponentsPlot( ctmatrix = x, population = pop )
   
   out <- y[ y$Category == 'Overall', -1 ]
-  
-  return( out )
+  return( out[ c('Quantity', 'Exchange', 'Shift') ] ) #return desired stats and order
 }
+
+# #-- Testing diffeR stats ... 
+# z <- caret::confusionMatrix( rf.region.HG$predictions, train.data.20m$HG$BType4)
+# diffr.Stats( z$table )
+# 
+# x <- matrix( z$table, 4,4 )
+# rownames( x ) <- c(1,2,3,4); colnames( x ) <- c(1,2,3,4)
+# y <- diffTablej( x, digits = 0, analysis = "error" )
+
 
 
 #----------------------------------
-#-- Weighted Sensitivity, Specificity, and TSS calculations
-#   TSS calculation taken from Fit_Random_Forest.R.
-#   https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/j.1365-2664.2006.01214.x
+#-- Weighted Specificity (true negative rate), and TSS calculations
+#   TSS calculation taken from Fit_Random_Forest.R and based on Allouche et al. 2006.
 #   TSSwtd defined as tss/prevalence summed across classes. 
-# Takes: A caret contingency table
+# Takes:   A caret contingency table
 # Returns: A one-row data.frame of named statistics
 Wtd.Stats <- function( cTable ){
   
@@ -143,10 +285,11 @@ Wtd.Stats <- function( cTable ){
   TSS <- x$Sensitivity + x$Specificity - 1
   TSS <- sum( TSS * x$Prevalence )
   
-  Sens <- sum( x$Sensitivity * x$Prevalence )
+  #-- Dropped cuz this looks like the accuracy calculation - 2020/02/27.
+  #Sens <- sum( x$Sensitivity * x$Prevalence )
   Spec <- sum( x$Specificity * x$Prevalence )
   
-  return( data.frame( 'TSSWtd' = TSS, 'SensWtd' = Sens, 'SpecWtd' = Spec ))
+  return( data.frame( 'TSSWtd' = TSS, 'TNRWtd' = Spec ))
 }
 
 
@@ -341,71 +484,94 @@ Load.Obs.Data <- function( gdb, fc ) {
 
 
 #---------------------------------------------------------------------------------------------
-# For the provided  sample: 1) partition the data; 2) build train model, 3) build a full model
+# For the provided sample: 1) partition the data; 2) build train model, 3) build a full model
 # build a RF model with partitioned subset data
 # evaluate model with withheld data (should be same sample size ans i-1 model )
 Test.Sample.Size <- function( obs, howMany, part, theForm ){
   
   N <- nrow( obs )
-  results <- data.frame()
+  results <- NULL
   
   for (i in 1:howMany) {
     
     # pull the sample ... 
     RF.sample <- obs[ sample( 1:N, (i/howMany * N) ), ]
     
-    # calculate the wts ...  
-    props <- RF.sample %>% group_by(BType4) %>% count(BType4) 
-    #prop.Btype4 <- obs@data %>% group_by(BType4) %>% count(BType4) 
-    pWts <- 1 - ( props$n / sum( props$n ))
-    
-    # Build the  model ... 
-    anRF <- ranger( theForm,
-                    data = RF.sample,
-                    num.trees = ntree, replace = repl, importance = imp.2,
-                    case.weights = pWts[ RF.sample$BType4 ])    #Define case.weights
-    
-    #-- Report on RF.Train vs. itself.
-    x <- kappa(anRF$confusion.matrix)$coef
-    y <- BER(RF.sample$BType4, anRF$predictions)
-    
-    r1 <- data.frame("test" = i, "sample" = nrow(RF.sample), "evaluation" = "full", 
-                     "kappa" = round(x, 4), "BER" = round(y, 4)  )
-    
-    results <- rbind( results, r1) 
-    
-    #--------------------------------------
-    # Now partition the data, and report statistics for testing partition.
+    # partition the sample ... 
     x <- sample( 1:nrow(RF.sample), part * nrow(RF.sample) )
-    train <- RF.sample[ x, ]
-    test  <- RF.sample[ -x, ]
+    x.train <- RF.sample[ x, ]
+    x.test  <- RF.sample[ -x, ]
     
-    cat("train N", nrow(train), "\n") 
+    cat("train N", nrow(x.train), "\n") 
     # Build the weighting vector ...
-    prop.Btype4 <- train %>% group_by(BType4) %>% count(BType4) 
+    prop.Btype4 <- x.train %>% group_by(BType4) %>% count(BType4) 
     wts <- 1 - ( prop.Btype4$n / sum( prop.Btype4$n ))
     
     # Build the coastwide model ... 
     anRF <- ranger( theForm,
-                    data = train,
+                    data = x.train,
                     num.trees = ntree, replace = repl, importance = imp.2,
-                    case.weights = wts[ train$BType4 ])    #Define case.weights
+                    case.weights = wts[ x.train$BType4 ])    #Define case.weights
     
-    #-- Report on Train vs. Testing.
-    test.preds <- predict( anRF, test )
+    #-- Evaluate the model using the test partition.
+    results <- rbind( results, Results.Row( anRF, x.test )) 
+    print(i)
     
-    x <- kappa( confusionMatrix(test.preds$predictions, test$BType4)$table )
-    y <- BER(test$BType4, test.preds$predictions)
+    }
+  return( results ) 
+}
+
+#---------------------------------------------------------------------------------------------
+# For the provided sample: 1) partition the data ranging from even prevalence to imbalance = NN;
+# 2) build an model with training data; 3) evaluate the model with testing partition.
+# REQUIRES: obs class attribute = BType; Needs to have 4 classes.
+Test.Prevalence <- function( obs, N, part, theForm ){
+  
+  results <- NULL
+
+  #-- Build the partion sizes first  ...
+  #   NEED to 1) fix sample size and 
+  #           2) change prevlance of one category only to avoid conflating things ... 
+
+  #-- increase prevalence of rock from 0.25 to 0.85 ... 
+  w <- list()
+#  i = 0
+  for (i in seq(0, 0.6, by=0.05) ) {
+
+    w[1] <- 0.25 - i/3
+    w[2] <- 0.25 + i
+    w[3] <- 0.25 - i/3
+    w[4] <- 0.25 - i/3
     
-    cat( x$coef, '\n')
-    cat( y, '\n')
+    cat( paste( w[1], w[2], w[3], w[4] ), '\n')
+
+    RF.sample <- rbind( 
+      b1 <- sample_n( obs[ obs$BType4 == 1, ], round( w[[1]] * N )),
+      b2 <- sample_n( obs[ obs$BType4 == 2, ], round( w[[2]] * N )),
+      b3 <- sample_n( obs[ obs$BType4 == 3, ], round( w[[3]] * N )),
+      b4 <- sample_n( obs[ obs$BType4 == 4, ], round( w[[4]] * N ))
+    )  
+
+    # partition the sample ... 
+    x <- sample( 1:nrow(RF.sample), part * nrow(RF.sample) )
+    x.train <- RF.sample[ x, ]
+    x.test  <- RF.sample[ -x, ]
     
-    r1 <- data.frame("test" = i, "sample" = nrow(RF.sample), "evaluation" = "partition", 
-                     "kappa" = round(x$coef, 4), "BER" = round(y, 4)  )
+    cat("train N", nrow(x.train), "\n") 
+    # Build the weighting vector ...
+    prop.Btype4 <- x.train %>% group_by(BType4) %>% count(BType4) 
+    wts <- 1 - ( prop.Btype4$n / sum( prop.Btype4$n ))
     
-    results <- rbind( results, r1) 
+        # Build the coastwide model ... 
+    anRF <- ranger( theForm,
+                    data = x.train,
+                    num.trees = ntree, replace = repl, importance = imp.2,
+                    case.weights = wts[ x.train$BType4 ])    #Define case.weights
     
-    #save( anRF, file = file.path(output.directory, paste0( i, "_", 'msm_model.RData')) )  
+    #-- Evaluate the model using the test partition.
+    results <- rbind( results, Results.Row( anRF, x.test )) 
+    print(i)
+    
   }
   return( results ) 
 }
