@@ -1,6 +1,7 @@
 #*******************************************************************************
 # Script:  depth_effect.R
 # Created: 19 March 2020. EJG
+#
 # Purpose: Evaluate a suite of different RF models with Independent data (ID) across depth classes. 
 #   Part of the substrate family of scripts. 
 #   Part 1 evaluates 100 m coastwide model using training data, and aggregated IDS for entire coast
@@ -212,36 +213,9 @@ for (i in bioregions) {
 
 out.file <- 'Depth_compare_regions.csv'
 write.csv( results.table, file = file.path(output.dir, out.file) )
+#results.table <- read.csv(file = file.path(output.dir, 'Depth_compare_regions.csv') )
 
 
 
-#==========================================================================================
-#-- Try some plotting of the results ... 
-
-# Barplots, grouping IDS types, with zRibbons on the x axis ... by region?
-
-names( results.table )
-c('Quantity', 'Exchange', 'Shift') 
-
-
-foo <- melt( results.table[ c("Model", "Test.Data", "Ribbon", "Accuracy")] )
-head(foo)
-
-pal <- pnw_palette( 'Shuksan2', 3)
-
-
-bar <- foo[ foo$Test.Data == 'dive', c(1,3,4,5)]
-a <- ggplot( bar, aes(x=Ribbon, y=value, fill=Model) ) + 
-  geom_boxplot( )
-a
-
-
-bar <- foo[ foo$Model == 'HG', c(2,3,5)]
-a <- ggplot( bar, aes(x=Ribbon, y=value, fill=Test.Data) ) + 
-  geom_boxplot( )
-#geom_point( colour = 'Blue' )
-a
-
-  scale_fill_manual( values = c('Blue', 'Green', 'Red' ))
 
 #-- FIN.

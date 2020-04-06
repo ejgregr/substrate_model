@@ -1,7 +1,8 @@
 #----------------------------------------------------------------------------
 # Script:  substrate_functions.R
-# Purpose: Support building and evaluation of Random forst models for substrate paper.
 # Created: January 2020. EJG
+#
+# Purpose: Support building and evaluation of Random forst models for substrate paper.
 # Goal: Adapt the necessary functionality from Cole's Fit_Random_Forest.R script 
 #   to use ranger() library and expand to do independent data evaluation.
 #
@@ -9,12 +10,18 @@
 #  - 
 #----------------------------------------------------------------------------
 
+
+#----------------------------------------------------------------------------
 #-- Load packages using neat loading code from Cole ... 
-#       Currently not using: ggplot2, spatialEco, xlsx, robustbase, biomod2
 
 # check for any required packages that aren't installed and install them
-required.packages <- c("diffeR", "vegan", "randomForest", "ranger", "raster", "rgdal", "stringr", "measures", "e1071",   
-                       "caret", "tidyr","dplyr", "PresenceAbsence")
+required.packages <- c("ggplot2", "reshape2", "tidyr","dplyr", 
+                       "diffeR", "vegan", "randomForest", "ranger", "raster", "rgdal", "stringr",
+                       "measures", "e1071", "caret", "PresenceAbsence", 
+                       "superheat", "PNWColors")
+# Currently not using:  "spatialEco", "xlsx", "robustbase", "biomod2", "sp", "magrittr",
+#                       "tinytex", "rmarkdown", "binr"
+
 uninstalled.packages <- required.packages[!(required.packages %in% installed.packages()[, "Package"])]
 
 # install any packages that are required and not currently installed
@@ -47,9 +54,6 @@ coast.formula <- "BType4 ~ bathy + broad_BPI + circulation + curvature + fine_BP
 # Source of obs data. Obtained Dec 2020. 
 # Working layers modifed in GIS to ensure BType4 and Region fields added. 
 sourceGDB <- 'C:/Data/SpaceData/Substrate2019/IDE work.gdb'
-ptSources <- list( 'obs', 'BHM_habitat', 'DropCam_reg', 'ROV_reg')
-names(ptSources) <- c('train', 'dive', 'cam', 'ROV')
-
 
 # proj4 string for albers projection with NAD83 datum
 spat.ref <- '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +datum=NAD83 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0'
@@ -107,8 +111,10 @@ Make.Ranger.Model <- function( x.data, x.formula, partition = 0.7, iterations = 
   #-- Build the model result entry.
   if (iterations > 1)
     z <- Summary.Row( out.table[, -1] )
-  else
+  else {
     z <- out.table
+    zz <- rbind( 'obs' = table( x.train$BType4 ), 'pred' = table( x.model$predictions ))
+  }
   #-- Build the model with all the training data.
   props <- x.data %>% group_by(BType4) %>% count(BType4) 
   wts <- 1 - ( props$n / sum( props$n ))
@@ -117,7 +123,7 @@ Make.Ranger.Model <- function( x.data, x.formula, partition = 0.7, iterations = 
                      num.trees = ntree, replace = repl, importance = imp.2, oob.error = T,
                      case.weights = wts[ x.data$BType4 ])    #Define case.weights
   
-    return( list( 'Stats' = z, 'Model' = x.model ))
+    return( list( 'Stats' = z, 'Model' = x.model, 'Prev' = zz ))
 }
 
        
@@ -329,6 +335,9 @@ Assemble.Coast.Test <- function( indat ){
 # Load all the observational data, obs plus the ID sets. 
 # Just a wrapper function to make a bunch of calls.
 Load.Observations <- function(){
+  
+  ptSources <- list( 'obs', 'BHM_habitat', 'DropCam_reg', 'ROV_reg')
+  names(ptSources) <- c('train', 'dive', 'cam', 'ROV')
   
   #-- Load Coastwide observations (created by Cole's code)
   #   Provided here as a shape file, which I copied to the working gdb file.

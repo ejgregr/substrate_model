@@ -1,6 +1,7 @@
 #*******************************************************************************
 # Script:  sample_effect.R
 # Created: 26 March 2020. EJG
+#
 # Purpose: Compare data across scales and possibly across regions.
 #   Evaluate effect of sample size and prevalence on performance metrics. 
 
