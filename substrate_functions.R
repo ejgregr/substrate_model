@@ -74,7 +74,7 @@ test.frac <- 0.6
 #-- Functions.   
 
 
-#------------------------------------------------
+#--------------------------------------------------------------
 # Builds a random forest model for the specified region
 # Returns a list with the final model fitted to all the data, 
 # and a summary table of the re-sampled performance statistics.
@@ -113,7 +113,6 @@ Make.Ranger.Model <- function( x.data, x.formula, partition = 0.7, iterations = 
     z <- Summary.Row( out.table[, -1] )
   else {
     z <- out.table
-    zz <- rbind( 'obs' = table( x.train$BType4 ), 'pred' = table( x.model$predictions ))
   }
   #-- Build the model with all the training data.
   props <- x.data %>% group_by(BType4) %>% count(BType4) 
@@ -123,7 +122,7 @@ Make.Ranger.Model <- function( x.data, x.formula, partition = 0.7, iterations = 
                      num.trees = ntree, replace = repl, importance = imp.2, oob.error = T,
                      case.weights = wts[ x.data$BType4 ])    #Define case.weights
   
-    return( list( 'Stats' = z, 'Model' = x.model, 'Prev' = zz ))
+    return( list( 'Stats' = z, 'Model' = x.model ))
 }
 
        
@@ -158,7 +157,9 @@ Results.Row <- function( testModel, testData ){
   )
   out2 <- data.frame( 
     "User"  = round( diag(z$table) / rowSums(z$table), mant ), 
-    "Prod"  = round( diag(z$table) / colSums(z$table), mant ))
+    "Prod"  = round( diag(z$table) / colSums(z$table), mant ),
+    "PrevObs"  = round( as.vector( table( testData$BType4 )) ),
+    "PrevPred" = round( as.vector( table( y$predictions )) ))
   
   return( list( 'Integrated' = out1, 'PerClass' = t(out2) ))
 }
@@ -529,6 +530,7 @@ Test.Sample.Size <- function( obs, howMany, part, theForm ){
     }
   return( results ) 
 }
+
 
 #---------------------------------------------------------------------------------------------
 # For the provided sample: 1) partition the data ranging from even prevalence to imbalance = NN;

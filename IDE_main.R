@@ -1,7 +1,7 @@
 #*******************************************************************************
 # Script:  IDE_main.R
 # Created: January 2020. EJG
-# Updated: 2020/04/01 EJG (now detailed in README.md)
+# Updated: 2020/04/09 EJG (updates now detailed in README.md)
 #
 # This first script in the set: 
 #   1: Loads all the observational data
@@ -11,6 +11,10 @@
 
 # Subsequent scripts: depth_effect.R, sample_effect.R, model_summaries.R.
 # Supporting scripts: substrate_functions.R, Plot_Functions.R
+
+# NOTES:
+#   2020/04/09: DEFERRED UNTIL SUBSTRATE PAPER COMPLETE
+
 #*******************************************************************************
 
 rm(list=ls(all=T))  # Erase environment.
@@ -19,7 +23,6 @@ rm(list=ls(all=T))  # Erase environment.
 source( "substrate_functions.R" )
 source( "model_summaries.R" )
 source( "Plot_Functions.R" )
-
 
 #-------------------------------------------------------------------------
 #-- PART 1: Load, prep, and inspect all the data. 
@@ -36,6 +39,7 @@ starttime <- Sys.time()
 
 #-- Load all point observations from ArcGIS GDB. 
 # Returns a list of the 4 point files.
+# Includes all the attribute data associated with the points in the gdb file. 
 obs.data <- Load.Observations()
 
 names( obs.data )
@@ -46,7 +50,7 @@ table( obs.data$train$BT_Sorc )
 #   NOTE For the obs data already have the predictors attached, so just take the data. 
 train.data.100m <- obs.data$train@data
 
-# Now use the spatial points to pull predictor data ... 
+# Now use the spatial points to pull the 20 m predictor data ... 
 #   First part splits the Train Obs into the bioregions and replaces the predictors with 20 m.
 #   Remove the 100 m data beforehand ... 
 #   takes ~10 minutes because of the extents/size of the coastwide Obs training dataset.
@@ -142,7 +146,7 @@ imp <- foo$Model$variable.importance
 rf.coast <- foo$Model
 build.results <- c( build.results, 'Coast' = list( 'stats' = foo$Stats, 'Import' = imp) )
 prev.table <- rbind( prev.table, 
-                     cbind( 'Region' = 'Coast', foo$Prev))
+                     cbind( 'Region' = 'Coast', foo$Stats[[ 2 ]][c(3,4),]))
 
 
 #----- Region HG  -----
@@ -155,7 +159,7 @@ imp <- foo$Model$variable.importance
 rf.region.HG <- foo$Model
 build.results <- c( build.results, 'HG' = list( 'stats' = foo$Stats, 'Import' = imp) )
 prev.table <- rbind( prev.table, 
-                      cbind( 'Region' = 'HG', foo$Prev))
+                      cbind( 'Region' = 'HG', foo$Stats[[ 2 ]][c(3,4),]))
 
 
 #----- Region NCC  -----
@@ -168,7 +172,7 @@ imp <- foo$Model$variable.importance
 rf.region.NCC <- foo$Model
 build.results <- c( build.results, 'NCC' = list( 'stats' = foo$Stats, 'Import' = imp) )
 prev.table <- rbind( prev.table, 
-                     cbind( 'Region' = 'NCC', foo$Prev))
+                     cbind( 'Region' = 'NCC', foo$Stats[[ 2 ]][c(3,4),]))
 
 
 #----- Region WCVI  -----
@@ -181,7 +185,7 @@ imp <- foo$Model$variable.importance
 rf.region.WCVI <- foo$Model
 build.results <- c( build.results, 'WCVI' = list( 'stats' = foo$Stats, 'Import' = imp) )
 prev.table <- rbind( prev.table, 
-                     cbind( 'Region' = 'WCVI', foo$Prev))
+                     cbind( 'Region' = 'WCVI', foo$Stats[[ 2 ]][c(3,4),]))
 
 
 #----- Region QCS  -----
@@ -194,7 +198,7 @@ imp <- foo$Model$variable.importance
 rf.region.QCS <- foo$Model
 build.results <- c( build.results, 'QCS' = list( 'stats' = foo$Stats, 'Import' = imp) )
 prev.table <- rbind( prev.table, 
-                     cbind( 'Region' = 'QCS', foo$Prev))
+                     cbind( 'Region' = 'QCS', foo$Stats[[ 2 ]][c(3,4),]))
 
 
 #----- Region SOG  -----
@@ -207,7 +211,7 @@ imp <- foo$Model$variable.importance
 rf.region.SOG <- foo$Model
 build.results <- c( build.results, 'SOG' = list( 'stats' = foo$Stats, 'Import' = imp) )
 prev.table <- rbind( prev.table, 
-                     cbind( 'Region' = 'SOG', foo$Prev))
+                     cbind( 'Region' = 'SOG', foo$Stats[[ 2 ]][c(3,4),]))
 
 names(build.results)
 
@@ -236,23 +240,28 @@ save( build.results, prev.table,
 #--- Create summaries of model builds in csv files ... for figure production.
 # Build_results_Integrated.csv
 # Build_results_byClassStats.csv
+# Build_results_testPrevalence.csv
 # Build_results_varImportance.csv
 Summarize.Build( build.results )
 
 #------- Produce and save some plots ----------------
 
 #--- Heatmaps (tigures!) of build stats as png files from above csv files.
-Build.Plots()
 
-#--- Plot some facets of the Build results ... 
+Plot.Build.Class.Stats( 'Build_results_byClassStats.csv', pal.10, 800, 600 )
 
-#--- Prevalence plots for obs and predicted for build testing partition faceted by Region
-a <- Plot.Obs.Pred.Prevalence.Build( prev.table, pal.cole ) 
+Plot.Build.Var.Import( 'Build_results_varImportance.csv', pal.11, 1000, 600 )
+  
+
+#--- Facets of the Build results ... 
+
+#--- Prevalence plots (obs & predicted) for build (testing partition), faceted by Region
+a <- Plot.Obs.Pred.Prevalence.Build( 'Build_results_test_ClassPrevalence.csv', pal.cole ) 
 ggsave("Class Prevalence for Obs&Pred (Build) for Regions.png", a, dpi = 300, width = 16, height = 10, path = output.dir)
 
 #-- User and producer accuracies by class ... 
 a <- Plot.Class.Stats.For.Regions( 'Build_results_byClassStats.csv', pal.cole )
-ggsave( 'Class Stats (build) for Regions.png', a, dpi = 300, width = 16, height = 10, path = output.dir)
+ggsave( 'Class Stats (Build) for Regions.png', a, dpi = 300, width = 16, height = 10, path = output.dir)
 
 
 

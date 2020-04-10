@@ -44,63 +44,117 @@ pal.pnw <- pal[c(9,6,3)]
 pal.6 <- pnw_palette( 'Shuksan', 6 )
 pal.6 <- sample( pnw_palette( 'Bay', 6 ), 6)
 pal.3 <- sample( pnw_palette( 'Bay', 6 ), 3)
+pal.10 <- pnw_palette( 'Bay', 10 )
+pal.11 <- rev(pnw_palette( 'Bay', 11 ))
+
 
 
 # Heat maps of the build tables
-Build.Plots <- function() {
-  pal <- pnw_palette( 'Bay', 10 )
+Plot.Build.Class.Stats <- function( csv, pal, w = 800, h = 600 ) {
   
-  # 1) User accuracy  ... 
-  foo <- y.usr[,-1]
-  row.names( foo ) <- y.prd$Model
-  tab <- round( as.matrix(foo), 2)
+  # grab the Class Stats data table ... 
+  a <- read.csv( file = file.path( output.dir, csv ))
+  
+    # 1) User accuracy:
+  usr <- a[ a$Stat == 'User', ] 
+  foo <- usr[, -c(1:3) ]
+  row.names( foo ) <- usr$Region
+  
+  #The cell values to display ... 
+  tab <- round( data.matrix(foo), 2)
+  
+  png( file.path( output.dir, 'heat_UserAccuracy_Build.png'), width = w, height = h )
   superheat( foo, heat.pal = pal, legend = F, grid.hline = F, grid.vline = F, scale = F,
              X.text = tab, X.text.col = 'lightblue', X.text.size = 10,
              order.rows = rev(1:nrow(foo)),
              left.label.col = 'white', left.label.text.size = 10,
              bottom.label.col = 'White', bottom.label.size = 0.1, bottom.label.text.size = 10 )
+  dev.off()
   
   # 2) Producer accuracy  ... 
-  foo <- y.prd[,-1]
-  row.names( foo ) <- y.prd$Model
+  prd <- a[ a$Stat == 'Prod', ] 
+  foo <- prd[, -c(1:3) ]
+  row.names( foo ) <- prd$Region
+  
+  #The cell values to display ... 
   tab <- round( as.matrix(foo), 2)
+  
+  png( file.path( output.dir, 'heat_ProducerAccuracy_Build.png'), width = w, height = h )
   superheat( foo, heat.pal = pal, legend = F, grid.hline = F, grid.vline = F, scale = F,
              X.text = tab, X.text.col = 'lightblue', X.text.size = 10,
              order.rows = rev(1:nrow(foo)),
              left.label.col = 'white', left.label.text.size = 10,
              bottom.label.col = 'White', bottom.label.size = 0.1, bottom.label.text.size = 10 )
+  dev.off()
+}
+
+
+#-- Predictor importance for all models ... 
+Plot.Build.Var.Import <- function( csv, pal, w = 800, h = 600 ) {
+
+  # grab the Variable imporatance  table ... 
+  a <- read.csv( file = file.path( output.dir, csv ))
   
-  # 3) Predictor importance ... 
-  pal <- rev(pnw_palette( 'Bay', 11 ))
+  # restore df character (X is the name) ... 
+  x <- data.frame(a[,-1])
+  row.names(x) <- a[,1]
   
+  #-- create a rank table: 
+  y <- data.frame(
+    rbind( rank( -as.vector( x["Coast",] )),
+           rank( -as.vector( x["HG",]    )),
+           rank( -as.vector( x["NCC",]   )),
+           rank( -as.vector( x["WCVI",]  )),
+           rank( -as.vector( x["QCS",]   )),
+           rank( -as.vector( x["SOG",]   ))
+    ))
+  row.names( y ) <- a[,1]
+  
+  #-- Define the text for the tigure.    
+  #   need to stick a zero in there so this calculation works ... 
+  x[1,11] <- 0
+  tab <- as.matrix(x)
+  # see what proportion of max looks like
+  den <- apply( tab, 1, max)
+  t2  <- round( apply( tab, 2, "/", den ), 2)
+  # Zero out the NA in Coastal
+  t2[1,11] <- 'NA'
+  
+  #-- order according to the results ... 
+  olist <- c(1,11,2,10,3,9,6,4,5,7,8)
+
+  png( file.path( output.dir, 'heat_VariableImportance_Build.png' ), width = w, height = h )
   superheat( y, heat.pal = pal, legend = F, grid.hline = F, grid.vline = F, scale = F,
-             X.text = tab, X.text.col = 'lightblue', X.text.size = 10,
-             order.rows = rev(1:nrow(y)),
+             X.text = t2, X.text.col = 'lightblue', X.text.size = 8, heat.lim = c(1,10),
+             order.rows = rev(1:nrow(y)), order.cols = olist,
              left.label.col = 'white', left.label.text.size = 10,
-             bottom.label.col = 'White', bottom.label.text.angle = 55, 
-             bottom.label.size = 0.25, bottom.label.text.size = 10, bottom.label.text.alignment = 'right' )
+             bottom.label.col = 'White', bottom.label.text.angle = 75, 
+             bottom.label.size = 0.4, bottom.label.text.size = 10, bottom.label.text.alignment = 'right' )
+    dev.off()
 }
 
 
 #-------------- FACETED Build Statistics --------------------
 
 #-- Class prevalence of obs and pred during build, faceted by region.
-Plot.Obs.Pred.Prevalence.Build <- function( prev.df, apal ){
+# Source: csv built by build.summary(). 
+# NOTE: the order of the Obs/Pred rows is irrelevant because melted here. 
+Plot.Obs.Pred.Prevalence.Build <- function( csv, apal ){
+  
+  dat.table <- read.csv(file = file.path(output.dir, csv) )
   
     # Clean up the data ...
   #drop region
-  x <- prev.df[,-1]
+  x <- dat.table[,-1]
   #change factors to numbers 
-  x <- matrix(as.numeric( as.matrix(x)), 12, 4)
-  #change numbers to proportions
-  x <- data.frame( x/rowSums(x) )
-  colnames(x) <- c('Hard','Mixed','Sand','Mud')
-  #add Region back on 
-  x <- cbind( 'Region' = prev.table[,1], x)
-  #add Source type 
-  x <- cbind( 'Source' = c('Obs', 'Pred'), x )
+  #x <- matrix(as.numeric( as.matrix(x)), 12, 4)
   
-  foo <- melt( x, id.var = c('Region', 'Source'))
+  #change numbers to proportions
+  y <- data.frame( x[,c(3:6)]/rowSums(x[,c(3:6)]) )
+  y <- cbind( x[,c(1,2)], y)
+  names(y)[1] <- 'Source'
+  
+  foo <- melt( y, id.var = c('Region', 'Source'))
   
   a <- foo %>%
     ggplot(aes(x = variable, y = value, fill = Source)) +
@@ -223,9 +277,6 @@ Plot.IDS.Class.Stats.For.Regions  <- function( csv, apal ){
 
 
 
-
-
-
 # facetted plots for proportions
 facet.props <- function(master.df, working.dir){
   # hex colours for plots
@@ -249,8 +300,6 @@ facet.props <- function(master.df, working.dir){
   
   return(sub.bars)
 }
-
-
 
 
 

@@ -6,14 +6,15 @@
 #   Evaluate effect of sample size and prevalence on performance metrics. 
 
 # Notes:
-#  - Requires loaded models and observationl data from main script.
+#  - Requires loaded models and observational data from main script.
+#  - 2020/04/09: DEFERRED UNTIL SUBSTRATE PAPER COMPLETE
 #********************************************************************************
 
 
 #-----------------------------------------------
 #-- Contrast predictors at 100m and 20 m depths.
 #   A few extra contortions required because the data are in different structures. 
-#   Also, the IDs in the 20m are not unique across regions. 
+#   Also, the IDS in the 20 m are not unique across regions. 
 
 x <- rbind(
     data.frame( Region = 'HG',   train.data.20m$HG ),
@@ -87,7 +88,7 @@ boxplot( depth ~ type, data = x, ylim=c(0,400))
 
 
 #---------------------------------------------------------------------
-# Compare how performance stats vary with  sample size and prevalence. 
+# Compare how performance stats vary with sample size and prevalence. 
 # Uses sub-sampling. 
 
 #-- Use only a portion of the training data otherwise it takes too long ....
@@ -109,7 +110,7 @@ foo
 #   NOTE: unpacking the results looks different here than in IDE_MAin script ... ?? 
 bar <- do.call( rbind.data.frame, foo[ , 'Integrated' ] )
 
-#-- Joininng multiple runs; Some data edits ...  
+#-- Joining multiple runs; Some data edits ...  
 bar1 <- bar
 bar <- rbind( bar1[-38,], bar[ 18:20, ] )
 bar$Allocation <- bar$Exchange + bar$Shift
@@ -178,15 +179,12 @@ a <- ggplot(bar2, aes(x=Imbalance, y=value, colour=variable, shape=variable)) +
         legend.title.align = 0.5,                                   
         legend.key.size = unit(1, 'cm')                             # legend line spacing
   ) + 
-  
   scale_shape_discrete(name  = "Metric") +
   scale_colour_discrete(name  = "Metric")
-
 
 #-- Fix the background ... 
 a <- a + theme(panel.background = element_rect(fill = "white"))
 a <- a + theme(panel.grid.major = element_line(colour = "darkgrey"))
-
 a
 
 

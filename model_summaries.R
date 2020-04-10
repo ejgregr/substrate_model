@@ -86,19 +86,18 @@ Do.Independent.Evaluation <- function( results=NULL ){
 
 
 
-
-
 #-------------------------------------------------------------------------------
 # Construct summary tables of build results. 
 #   Writes to CSV files. Returns nothing. 
 #     Build_results_Integrated.csv
 #     Build_results_byClassStats.csv
+#     Build_results_test_ClassPrevalence.csv
 #     Build_results_varImportance.csv
 #
 Summarize.Build <- function( build.df ){
 # Bunch of hacking here to pull the tables together ... 
 # Requires: build.results data.frame as input.
-#   Includes two lists for each run. 
+#   Includes pairs of lists for each run. 
 #   First is list of Integrated and perClass stats; Second is list of variable importance
 # ASSUMES 6 regions done.
   
@@ -106,10 +105,11 @@ Summarize.Build <- function( build.df ){
   a <- names( build.df )[c(1,3,5,7,9,11)]
   nm <- unlist( lapply( a, strsplit, split = '\\.' ))[c(1,3,5,7,9,11)]
   
-  # Integrated stats first ... 
+  # Pull Integrated Stats ... number are the rows for each region-specific stat
   x <- do.call(rbind.data.frame, 
                build.df[ c(1,3,5,7,9,11) ] )
   
+  # x has 2 components, the Integrated bit, .... 
   y <- do.call( rbind.data.frame, x$Integrated )
   
   z <- cbind( 'Model' = nm, y )
@@ -118,47 +118,59 @@ Summarize.Build <- function( build.df ){
   out.file <- 'Build_results_Integrated.csv'
   write.csv( z, file = file.path(output.dir, out.file) )
   
-  # Class-based stats  ... 
-  #   A table with both User and Producer. A df with 2 sets of rows.
-  x <- do.call(rbind.data.frame, 
-               build.df[ c(1,3,5,7,9,11) ] )
+  # and the PerClass bit which includes:
+  #   1) A table with both User and Producer. A df with 2 sets of rows.
+  y <- do.call( rbind,  x$PerClass )
+  z <- y[ (row.names(y) == 'User') | (row.names(y) == 'Prod') , ]
   
-  y <- do.call( rbind.data.frame,  x$PerClass )
-  
-  y.usr <- cbind( 'Region' = nm, y[ c(1,3,5,7,9,11), ])
+  # User first ... 
+  y.usr <- data.frame( 'Region' = nm, z[ c(1,3,5,7,9,11), ])
   row.names(y.usr) <- NULL
   
   # Now producer  
-  y.prd <- cbind( 'Region' = nm, y[ c(2,4,6,8,10,12), ])
+  y.prd <- data.frame( 'Region' = nm, z[ c(2,4,6,8,10,12), ])
   row.names(y.prd) <- NULL
   
   zz <- rbind(
     cbind( 'Stat' = 'User', y.usr ),
     cbind( 'Stat' = 'Prod', y.prd ) )
+  colnames(zz) <- c('Stat','Region','Hard','Mixed','Sand','Mud')
   out.file <- 'Build_results_byClassStats.csv'
   write.csv( zz, file = file.path(output.dir, out.file) )
   
+ #   2) The prevalence of the testing obs vs. predicted.
+  z <- y[ (row.names(y) == 'PrevObs') | (row.names(y) == 'PrevPred') , ]
+  
+  # Obs first ... 
+  y.obs <- data.frame( 'Region' = nm, z[ c(1,3,5,7,9,11), ])
+  row.names(y.obs) <- NULL
+  
+  # Now predicted  
+  y.prd <- data.frame( 'Region' = nm, z[ c(2,4,6,8,10,12), ])
+  row.names(y.prd) <- NULL
+  
+  zz <- rbind(
+    cbind( 'Stat' = 'Obs', y.obs ),
+    cbind( 'Stat' = 'Pred', y.prd ) )
+  colnames(zz) <- c('Stat','Region','Hard','Mixed','Sand','Mud')
+  out.file <- 'Build_results_test_ClassPrevalence.csv'
+  write.csv( zz, file = file.path(output.dir, out.file) )
   
   #-- And finally variable importance ... 
   # Integrated stats first ... 
+  # 2020/04/09: Moved the ranking to the plot function so values can go thru and be displayed 
   
   y <- data.frame(
-    rbind( c( rank( -as.vector( build.df$Coast.Import )), NA),
-           rank( -as.vector( build.df$HG.Import    )),
-           rank( -as.vector( build.df$NCC.Import   )),
-           rank( -as.vector( build.df$WCVI.Import  )),
-           rank( -as.vector( build.df$QCS.Import   )),
-           rank( -as.vector( build.df$SOG.Import   ))
+    rbind( as.vector( build.df$Coast.Import ),
+           as.vector( build.df$HG.Import    ),
+           as.vector( build.df$NCC.Import   ),
+           as.vector( build.df$WCVI.Import  ),
+           as.vector( build.df$QCS.Import   ),
+           as.vector( build.df$SOG.Import   )
     ))
   
-  #-- order according to the results ... 
-  olist <- c(1,11,2,10,3,9,6,4,5,7,8)
-  y <- y[, olist]
-  tab <- as.matrix(y)
-  tab[1,2] <- 0
-  
   row.names(y) <- nm
-  colnames(y)  <- names( build.results$HG.Import )[ olist ]
+  colnames(y)  <- names( build.df$HG.Import )
   
   out.file <- 'Build_results_varImportance.csv'
   write.csv( y, file = file.path(output.dir, out.file) )

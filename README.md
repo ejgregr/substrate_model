@@ -16,9 +16,10 @@ R version 3.6.2 x64
 UPDATES
 
 April 2020
+Update predictor influence plots to show proportion of best variable explained
 Add some of Cole's graphs to inform results. 
-  Needs a re-write of Make.Ranger.Model() to produce obs/pred pairs during testing
-Re-structure scripts to better separate data build, summarize/plot, and report (reflecting Cole's structure)
+Re-write Make.Ranger.Model() to produce obs/pred pairs of build testing partition.
+Re-structure scripts to better separate model building, summarizing, and plotting.
 
 March 2020
 Replace model building section with the building/fitting/reporting code. Save testing results to file along with models. 
@@ -38,3 +39,31 @@ NOTES:
    Always order parameters as (predicted, observed)
 - ranger() has inbag.counts - do we need to calculate our own OOB error?
 - Standardize SIGNS on the 100 m and 20 m bathymetries. Currently flipping sign on 20 m during data load.
+
+-------------------------------------------------------------------------------
+Description of data processing/analysis
+
+IDE_Main.R
+
+Part 1: Build Data Sets
+obs.data		All 4 observational data sets, loaded from the geodatabases, with attributes attached.
+train.data.100m 	The obs data with the predictors already assigned. Read from gdb file. (n=197587)
+train.data.20m		The obs points partitioned by region, with the 20 m predictors attached. (list of 5)
+dive.data		One of thee IDS with 20 m predictors attached.
+cam.data		One of thee IDS with 20 m predictors attached.
+ROV.data		One of thee IDS with 20 m predictors attached.
+
+Names on the train.data.100m attributes updated to match the more complete names from the 20m raster stack. 
+This allows the built models to predict with different data sets. 
+
+Part 2: Build and evaluate 6 RF models
+rf.coast	Built using train.data.100m
+rf.region.HG	Built using train.data.20m$HG
+rf.region.NCC	Built using train.data.20m$NCC
+rf.region.WCVI	Built using train.data.20m$WCVI
+rf.region.QCS	Built using train.data.20m$QCS
+rf.region.SOG	Built using train.data.20m$SOG
+
+Make.Range.Model() returns: the ranger() model structure; Build statistics; and the prevalence of observed and predicted values of the testing partition.
+This function also supports re-sampling of the training data to create confidence intervals but doesn't look like things are going that way.
+

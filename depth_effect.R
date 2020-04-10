@@ -6,14 +6,20 @@
 #   Part of the substrate family of scripts. 
 #   Part 1 evaluates 100 m coastwide model using training data, and aggregated IDS for entire coast
 #   Part 2 evaluates regional and coastwide models by region and data set
+#
+# Revised: 2020/04/06: Focus on two tests, one with obs testing data, the other with focused IDE. 
+#
 # Notes:
-#  - Requires loaded models and observationl data from main script.
+#  - Requires loaded models and observational data from main script.
+# Results: Makes 2 csv files:
+#   Depth_compare_coast.csv : Statistic basket for depth zones, coastwide
+#   Depth_compare_regions.csv : Statistic basket for depth zones, by Region
 #********************************************************************************
 
 
-
-#==================================================
-#-- Part 1: Evaluation of the coastwide model ... 
+#===========================================================================
+#-- Part 1: Compare 100 m model to 20 m regional models, across depth zones
+#   to see if there is a depth- resolution linkage. uses withheld obs data. 
 
 results.table <- NULL
 z.table <- NULL
@@ -22,10 +28,8 @@ z.table <- NULL
 z.breaks <- c( -5000, -50, -20, -10, -5, 0, 1000)
 z.ribs <- c('ITD', "0-5", "5-10", "10-20", "20-50", "50+")
 
-m.model <- rf.coast
-
 #---------------------------------------------------
-# 0. TRAINING DATA: 
+# Grab 0. TRAINING DATA: 
 rm( 'x.sub', 'x.test')
 x.test <- train.data.100m
 j <- "Train"
@@ -35,8 +39,7 @@ z.row <- NULL
 #hist(x.test$bathy)
 #hist(train.data.100m$bathy)
 
-# Add the depthClass to the test data ... 
-#-- what is this? - its [0,1,2,3]
+# Add the depthClass to the test data ... what are the levels? - they are [0,1,2,3]
 # hist(x.test$DepthCat) 
 x.test$zRibbon <- as.factor( 6 - findInterval( x.test$bathy, z.breaks) )
 
@@ -166,9 +169,7 @@ write.csv( results.table, file = file.path(output.dir, out.file) )
 
 #=====================================================================
 #-- Part 2: Evaluation of the regional models ... 
-
 #   zRibbons are on [0, 5], representing [ITD, 50+]
-
 
 results.table <- NULL
 
