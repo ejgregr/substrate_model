@@ -18,7 +18,7 @@
 required.packages <- c("ggplot2", "reshape2", "tidyr","dplyr", 
                        "diffeR", "vegan", "randomForest", "ranger", "raster", "rgdal", "stringr",
                        "measures", "e1071", "caret", "PresenceAbsence", 
-                       "superheat", "PNWColors")
+                       "superheat", "PNWColors", "tmap")
 # Currently not using:  "spatialEco", "xlsx", "robustbase", "biomod2", "sp", "magrittr",
 #                       "tinytex", "rmarkdown", "binr"
 
@@ -123,6 +123,48 @@ Make.Ranger.Model <- function( x.data, x.formula, partition = 0.7, iterations = 
                      case.weights = wts[ x.data$BType4 ])    #Define case.weights
   
     return( list( 'Stats' = z, 'Model' = x.model ))
+}
+
+# Function to predict a raster surface, write to disk, and export a png of the surface
+# env.predictors: raster stack of environmental predictors, ranger.model: model object, output.directory: path to output
+Predict.Surface <- function(env.predictors, ranger.model, output.directory){
+  
+  # create output directory - this creates it in the working directory. If it exists, do not show warning
+  dir.create(output.directory, showWarnings = FALSE)
+  
+  # save ranger model to disk as RData file
+  save(ranger.model, file = file.path(output.directory, 'ranger_model.RData'))
+  
+  # predict substrate using raster stack and model file
+  raster.obj <- raster::predict(object   = env.predictors,  
+                                model    = ranger.model,               
+                                progress = 'text',
+                                fun = function(model, ...) predict(model, ...)$predictions)
+  
+  # write raster file to disk
+  writeRaster(raster.obj, file.path(output.directory, 'classified_substrate.tif'), format = 'GTiff', datatype = 'INT2S')
+  
+  # generate table of proportions for each class in predicted raster
+  raster.prop <- round(100 * prop.table(table(na.omit(as.data.frame(getValues(raster.obj))))), 2)
+  
+  # colour palette for map
+  pal <- c("#999999", "#33bbff", "#ffff99", "#ffb84d")
+  
+  # labels for legend
+  labels <- c("Rock", "Mixed", "Sand", "Mud")
+  
+  # Map (up to 5,000,000 pixels)
+  png(file=file.path(output.directory, "substrate_raster.png"),
+       height = 7, width = 6, units = "in", res = 400)
+  plot(raster.obj, maxpixels=5000000, col=pal, legend=FALSE,
+       xlab = "Easting", ylab = "Northing", cex.axis = .5, cex.lab = .75)
+  legend(x = "bottomleft",
+         legend = labels, fill = pal, title=NA, bg = NA, box.col = NA)
+  
+  dev.off()
+  
+  return(list(raster.obj, raster.prop))
+  
 }
 
        
