@@ -2,11 +2,69 @@
 # Script:  model_summaries.R
 # Created: 01 April 2020. EJG
 #
-# Purpose: Create a report on the model results.
-#   Currently holds out-of-date code for writing to a text file. Update to markdown?
-
+# Purpose: Using the loaded observational data and the 5 RF models built, 
+#   prepare a bunch of data summaries to then visualize/ plot.
+# Methods: Hand-off to plots is via CSV files containing summary tables. 
+#
+# NOTES: Some out-of-date code for writing to a text file at the bottom. Convert to markdown?
+#
 #*******************************************************************************
 
+
+#====================================================================================
+#-- Model resolution across depths --
+#   GOAL: Facet across regions showing TSS (or other stat) 
+#
+# Methods: Done for a specified test sample - Even withheld. 
+
+
+#Do.Depth.Evaluation( train.data.100m )
+  
+
+Do.Depth.Evaluation <- function( test.dat ){
+  
+  results.table <- NULL
+  z.table <- NULL
+  
+  # Define the depth classes ... 
+  z.breaks <- c( -5000, -50, -20, -10, -5, 0, 1000)
+  z.ribs <- c('ITD', "0-5", "5-10", "10-20", "20-50", "50+")
+  
+  # Grab the test data ... 
+  rm( 'x.sub', 'x.test')
+  x.test <- train.data.100m
+  j <- "Train"
+  z.row <- NULL
+  
+  #- confirm that depths have same sign ... 
+  #hist(x.test$bathy)
+  #hist(train.data.100m$bathy)
+  
+  # Add the depthClass to the test data ... what are the levels? - they are [0,1,2,3]
+  # hist(x.test$DepthCat) 
+  x.test$zRibbon <- as.factor( 6 - findInterval( x.test$bathy, z.breaks) )
+  
+  for (k in levels(x.test$zRibbon) ){
+    
+    x.sub <- x.test[ x.test$zRibbon == k, ]
+    z.row <- cbind( z.row, round( mean(x.sub$bathy), 2) )
+    
+    # build the row label ... 
+    compare.what <- data.frame( 'Test Data' = j, 'Ribbon' = z.ribs[ as.numeric(k) + 1 ] )
+    
+    # make the results ... 
+    w <- Results.Row( m.model, x.sub )
+    x <- cbind( compare.what, w$Integrated )
+    results.table <- rbind( results.table, x ) 
+  }
+  z.row <- data.frame (z.row )
+  colnames( z.row ) <- z.ribs
+  z.row <- cbind('IDS' = j, z.row)
+  z.table <- rbind( z.table, z.row)
+  
+  
+  
+}
 
 
 #====================================================================================
@@ -18,34 +76,36 @@
 #   2. Regional models vs. all 3 ID sets. 
 #     summarizes the regional IDS
 # Build a table to hold the performance scores for the various comparisons.
-# All models have been parameterized with the full set of training observations.
+# GLOBAL VARIABLES REQUIRED:
+#   - loaded independent data (dive, cam, ROV)
+#   - all RF models built and parameterized 
 Do.Independent.Evaluation <- function( results=NULL ){
 #-- Part 1: Coast model vs. each ID set. Regional IDE sets need to be assembled.  
   
   # Dive Data - pull the regional data together  ... 
-  x.test <- Assemble.Coast.Test( dive.data )
+  x.test <- Assemble.Coast.Test( dive.20mIV )
   
   #-- Build the table piece ... 
-  compare.what <- data.frame( 'Model' = '100m coast', 'Test Data' = 'Dive' )
-  w <- Results.Row( rf.coast, x.test )
+  compare.what <- data.frame( 'Region' = 'Coastwide', 'Test Data' = 'Dive' )
+  w <- Results.Row( rf.region.Coast, x.test )
   x <- cbind( compare.what, w$Integrated )
   results <- rbind( results, x ) 
   
   # Repeat for the Cam IDS  ... 
-  x.test <- Assemble.Coast.Test( cam.data )
+  x.test <- Assemble.Coast.Test( cam.20mIV )
   
   #-- Build the table piece ... 
-  compare.what <- data.frame( 'Model' = '100m coast', 'Test Data' = 'Cam' )
-  w <- Results.Row( rf.coast, x.test )
+  compare.what <- data.frame( 'Region' = 'Coastwide', 'Test Data' = 'Cam' )
+  w <- Results.Row( rf.region.Coast, x.test )
   x <- cbind( compare.what, w$Integrated )
   results <- rbind( results, x ) 
   
   # Repeat for the ROV IDS  ... 
-  x.test <- Assemble.Coast.Test( ROV.data )
+  x.test <- Assemble.Coast.Test( ROV.20mIV )
   
   #-- Build the table piece ... 
-  compare.what <- data.frame( 'Model' = '100m coast', 'Test Data' = 'ROV' )
-  w <- Results.Row( rf.coast, x.test )
+  compare.what <- data.frame( 'Region' = 'Coastwide', 'Test Data' = 'ROV' )
+  w <- Results.Row( rf.region.Coast, x.test )
   x <- cbind( compare.what, w$Integrated )
   results <- rbind( results, x ) 
   
@@ -68,11 +128,13 @@ Do.Independent.Evaluation <- function( results=NULL ){
         # Bail ... 
         print( "skipping ... ")
       } else {
-        # good to go ... 
-        compare.what <- data.frame( 'Model' = i, 'Test Data' = j )
+        # good to go ... except need to upper case first letter of IDS ...  
+        jj <- sapply(j, function(x) 
+                          paste(toupper(substr(x,1,1)),substr(x,2,nchar(x)),sep="") )  # toupper for first character
+        compare.what <- data.frame( 'Region' = i, 'Test Data' = jj )
         
         # grab the IDS data ... 
-        x <- eval(parse( text=paste0( j, ".data" ) ))
+        x <- eval(parse( text=paste0( j, ".20mIV" ) ))
         x.test <- x[[ i ]]
         # make the results ... 
         w <- Results.Row( m.model, x.test )
@@ -81,9 +143,9 @@ Do.Independent.Evaluation <- function( results=NULL ){
       }
     }
   }
+  rownames( results ) <- NULL
   return( results )
 }
-
 
 
 #-------------------------------------------------------------------------------
@@ -93,7 +155,7 @@ Do.Independent.Evaluation <- function( results=NULL ){
 #     Build_results_byClassStats.csv
 #     Build_results_test_ClassPrevalence.csv
 #     Build_results_varImportance.csv
-#
+# REQUIRES: Input is the build.results table from building all the RF models. 
 Summarize.Build <- function( build.df ){
 # Bunch of hacking here to pull the tables together ... 
 # Requires: build.results data.frame as input.
@@ -101,9 +163,11 @@ Summarize.Build <- function( build.df ){
 #   First is list of Integrated and perClass stats; Second is list of variable importance
 # ASSUMES 6 regions done.
   
+  out <- list()
   # Build a list of names ... 
   a <- names( build.df )[c(1,3,5,7,9,11)]
   nm <- unlist( lapply( a, strsplit, split = '\\.' ))[c(1,3,5,7,9,11)]
+  
   
   # Pull Integrated Stats ... number are the rows for each region-specific stat
   x <- do.call(rbind.data.frame, 
@@ -112,11 +176,12 @@ Summarize.Build <- function( build.df ){
   # x has 2 components, the Integrated bit, .... 
   y <- do.call( rbind.data.frame, x$Integrated )
   
-  z <- cbind( 'Model' = nm, y )
+  z <- cbind( 'Region' = nm, y )
   row.names(z) <- NULL
   
   out.file <- 'Build_results_Integrated.csv'
-  write.csv( z, file = file.path(output.dir, out.file) )
+  write.csv( z, file = file.path(results.dir, out.file) )
+  out[[ 'build.results.Integrated' ]] <- z
   
   # and the PerClass bit which includes:
   #   1) A table with both User and Producer. A df with 2 sets of rows.
@@ -136,8 +201,9 @@ Summarize.Build <- function( build.df ){
     cbind( 'Stat' = 'Prod', y.prd ) )
   colnames(zz) <- c('Stat','Region','Hard','Mixed','Sand','Mud')
   out.file <- 'Build_results_byClassStats.csv'
-  write.csv( zz, file = file.path(output.dir, out.file) )
-  
+  write.csv( zz, file = file.path(results.dir, out.file) )
+  out[[ 'build.results.ByClass' ]] <- zz
+
  #   2) The prevalence of the testing obs vs. predicted.
   z <- y[ (row.names(y) == 'PrevObs') | (row.names(y) == 'PrevPred') , ]
   
@@ -154,14 +220,15 @@ Summarize.Build <- function( build.df ){
     cbind( 'Stat' = 'Pred', y.prd ) )
   colnames(zz) <- c('Stat','Region','Hard','Mixed','Sand','Mud')
   out.file <- 'Build_results_test_ClassPrevalence.csv'
-  write.csv( zz, file = file.path(output.dir, out.file) )
-  
+  write.csv( zz, file = file.path(results.dir, out.file) )
+  out[[ 'build.results.ClassPrev' ]] <- zz
+
   #-- And finally variable importance ... 
   # Integrated stats first ... 
   # 2020/04/09: Moved the ranking to the plot function so values can go thru and be displayed 
   
   y <- data.frame(
-    rbind( as.vector( build.df$Coast.Import ),
+    rbind( as.vector( c( build.df$Coast.Import, 0 )),
            as.vector( build.df$HG.Import    ),
            as.vector( build.df$NCC.Import   ),
            as.vector( build.df$WCVI.Import  ),
@@ -173,11 +240,53 @@ Summarize.Build <- function( build.df ){
   colnames(y)  <- names( build.df$HG.Import )
   
   out.file <- 'Build_results_varImportance.csv'
-  write.csv( y, file = file.path(output.dir, out.file) )
+  write.csv( y, file = file.path(results.dir, out.file) )
+  out[[ 'build.results.VarImport' ]] <- y
+  
+  return( out )
 }
 
 
+#-- Requires data structures and models to have been built ... 
+# Different from Build predictions cuz uses full study area rasters. 
+# DEFERRED - Hoping Cole can scrape the rasters. 
+Summarize.Predictions <- function() {
 
+  out <- NULL
+  # coastwide ... 
+  
+    tdat <-  obs.100m.data[ obs.100m.data$TestDat == 1, ] #test
+  x <- predict( rf.region.Coast, tdat )
+  y <- table(x$predictions)
+  out <- rbind( out, y)
+              
+  # HG: Load rasters, drop NAs, predict for region   ... 
+  tdat <- Load.Predictors( paste0( predictor.dir, "/", 'HG' ))
+  
+  z <- tdat$bathy
+  dim( z )
+  str( z )
+  z <- z[ !is.na( z  ), ]
+  
+  
+  head(z)
+  
+  tdat <- tdat[ !is.na( tdat$bathy ), ]
+  
+  
+  
+  names(tdat)
+  summary(tdat)
+  
+  
+  
+  x <- predict( rf.region.HG, tdat@data )
+  y <- table(x$predictions)
+  out <- rbind( out, y)
+  
+
+
+} 
 
 ###################################
 ### OLD CODE ####

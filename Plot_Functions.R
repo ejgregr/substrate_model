@@ -42,7 +42,8 @@ pal.cole <- c("#c6c6c6", "#c2f3f9", "#7fc9d8")
 pal <- pnw_palette( 'Winter', 10 )
 pal.pnw <- pal[c(9,6,3)]
 pal.6 <- pnw_palette( 'Shuksan', 6 )
-pal.6 <- sample( pnw_palette( 'Bay', 6 ), 6)
+pal.6 <- sample( pnw_palette( 'Bay', 6 ), 6) # Want to sample these cuz color ramp not reqd
+pal.5 <- sample( pnw_palette( 'Bay', 5 ), 5)
 pal.3 <- sample( pnw_palette( 'Bay', 6 ), 3)
 pal.10 <- pnw_palette( 'Bay', 10 )
 pal.11 <- rev(pnw_palette( 'Bay', 11 ))
@@ -53,7 +54,7 @@ pal.11 <- rev(pnw_palette( 'Bay', 11 ))
 Plot.Build.Class.Stats <- function( csv, pal, w = 800, h = 600 ) {
   
   # grab the Class Stats data table ... 
-  a <- read.csv( file = file.path( output.dir, csv ))
+  a <- read.csv( file = file.path( results.dir, csv ))
   
     # 1) User accuracy:
   usr <- a[ a$Stat == 'User', ] 
@@ -63,7 +64,7 @@ Plot.Build.Class.Stats <- function( csv, pal, w = 800, h = 600 ) {
   #The cell values to display ... 
   tab <- round( data.matrix(foo), 2)
   
-  png( file.path( output.dir, 'heat_UserAccuracy_Build.png'), width = w, height = h )
+  png( file.path( results.dir, 'heat_UserAccuracy_Build.png'), width = w, height = h )
   superheat( foo, heat.pal = pal, legend = F, grid.hline = F, grid.vline = F, scale = F,
              X.text = tab, X.text.col = 'lightblue', X.text.size = 10,
              order.rows = rev(1:nrow(foo)),
@@ -79,7 +80,7 @@ Plot.Build.Class.Stats <- function( csv, pal, w = 800, h = 600 ) {
   #The cell values to display ... 
   tab <- round( as.matrix(foo), 2)
   
-  png( file.path( output.dir, 'heat_ProducerAccuracy_Build.png'), width = w, height = h )
+  png( file.path( results.dir, 'heat_ProducerAccuracy_Build.png'), width = w, height = h )
   superheat( foo, heat.pal = pal, legend = F, grid.hline = F, grid.vline = F, scale = F,
              X.text = tab, X.text.col = 'lightblue', X.text.size = 10,
              order.rows = rev(1:nrow(foo)),
@@ -89,13 +90,14 @@ Plot.Build.Class.Stats <- function( csv, pal, w = 800, h = 600 ) {
 }
 
 
-#-- Predictor importance for all models ... 
+#-- Heat map of predictor importance for all models ... 
 Plot.Build.Var.Import <- function( csv, pal, w = 800, h = 600 ) {
 
   # grab the Variable imporatance  table ... 
-  a <- read.csv( file = file.path( output.dir, csv ))
+  # csv <- 'Build_results_varImportance.csv'
+  a <- read.csv( file = file.path( results.dir, csv ))
   
-  # restore df character (X is the name) ... 
+  # restore df (X is the row name) ... 
   x <- data.frame(a[,-1])
   row.names(x) <- a[,1]
   
@@ -111,21 +113,20 @@ Plot.Build.Var.Import <- function( csv, pal, w = 800, h = 600 ) {
   row.names( y ) <- a[,1]
   
   #-- Define the text for the tigure.    
-  #   need to stick a zero in there so this calculation works ... 
-  x[1,11] <- 0
   tab <- as.matrix(x)
   # see what proportion of max looks like
   den <- apply( tab, 1, max)
   t2  <- round( apply( tab, 2, "/", den ), 2)
-  # Zero out the NA in Coastal
+  # Zero out the NA in Coastal, text and value ... 
   t2[1,11] <- 'NA'
+  y[1,11] <- 0
   
   #-- order according to the results ... 
   olist <- c(1,11,2,10,3,9,6,4,5,7,8)
 
-  png( file.path( output.dir, 'heat_VariableImportance_Build.png' ), width = w, height = h )
+  png( file.path( results.dir, 'heat_VariableImportance_Build.png' ), width = w, height = h )
   superheat( y, heat.pal = pal, legend = F, grid.hline = F, grid.vline = F, scale = F,
-             X.text = t2, X.text.col = 'lightblue', X.text.size = 8, heat.lim = c(1,10),
+             X.text = t2, X.text.col = 'lightblue', X.text.size = 8, heat.lim = c(1,11),
              order.rows = rev(1:nrow(y)), order.cols = olist,
              left.label.col = 'white', left.label.text.size = 10,
              bottom.label.col = 'White', bottom.label.text.angle = 75, 
@@ -139,24 +140,20 @@ Plot.Build.Var.Import <- function( csv, pal, w = 800, h = 600 ) {
 #-- Class prevalence of obs and pred during build, faceted by region.
 # Source: csv built by build.summary(). 
 # NOTE: the order of the Obs/Pred rows is irrelevant because melted here. 
-Plot.Obs.Pred.Prevalence.Build <- function( csv, apal ){
+Plot.Obs.Pred.Prevalence.Build <- function( dat.table, apal ){
   
-  dat.table <- read.csv(file = file.path(output.dir, csv) )
-  
-    # Clean up the data ...
-  #drop region
-  x <- dat.table[,-1]
-  #change factors to numbers 
-  #x <- matrix(as.numeric( as.matrix(x)), 12, 4)
-  
-  #change numbers to proportions
-  y <- data.frame( x[,c(3:6)]/rowSums(x[,c(3:6)]) )
-  y <- cbind( x[,c(1,2)], y)
+  # change numbers to proportions
+  y <- data.frame( dat.table[,c(3:6)]/rowSums( dat.table[,c(3:6)] ))
+  # add results back to the ID columns
+  y <- cbind( dat.table[,c(1,2)], y)
   names(y)[1] <- 'Source'
   
   foo <- melt( y, id.var = c('Region', 'Source'))
   
   a <- foo %>%
+    # Adjust levels for correct faceting ... 
+    mutate(Region = factor(Region, levels=c("Coast", "HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
+    
     ggplot(aes(x = variable, y = value, fill = Source)) +
     geom_bar(stat = "identity", width = .6, position = "dodge") +
     labs( x = NULL, y = 'Prevalence' ) +
@@ -164,50 +161,122 @@ Plot.Obs.Pred.Prevalence.Build <- function( csv, apal ){
     scale_fill_manual(values = apal) +
     theme_bw() +
     theme(text = element_text(size=15)) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4))
+  
+  return(a)
+}
+
+
+#-- Class prevalence of obs vs. prediction across study area, faceted by region.
+Plot.Obs.RegionPred.Prevalence <- function( dat.table, apal ){
+  
+  # change numbers to proportions
+  y <- data.frame( dat.table[,c(3:6)]/rowSums( dat.table[,c(3:6)] ))
+  # add results back to the ID columns
+  y <- cbind( dat.table[,c(1,2)], y)
+  names(y)[1] <- 'Source'
+  
+  foo <- melt( y, id.var = c('Region', 'Source'))
+  
+  a <- foo %>%
+    # Adjust levels for correct faceting ... 
+    mutate(Region = factor(Region, levels=c("Coast", "HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
+    
+    ggplot(aes(x = variable, y = value, fill = Source)) +
+    geom_bar(stat = "identity", width = .6, position = "dodge") +
+    labs( x = NULL, y = 'Prevalence' ) +
+    facet_grid(. ~ Region) +
+    scale_fill_manual(values = apal) +
+    theme_bw() +
+    theme(text = element_text(size=15)) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4))
   
   return(a)
 }
 
 
 #--- Producer and User stats (Build) by Class for Regions ---
-Plot.Class.Stats.For.Regions <- function( csv, apal){
+Plot.Class.Stats.For.Regions <- function( dat.table, apal){
   
-  dat.table <- read.csv(file = file.path(output.dir, csv) )
-  dat.table <- dat.table[,-1]
-  names( dat.table ) <- c('Stat', 'Region', 'Hard', 'Mixed', 'Sand', 'Mud')
   foo <- melt( dat.table )
   
   a <- foo  %>%
-    ggplot(aes(x = variable, y = value, fill = Stat)) +
+    # Adjust levels for correct faceting ... 
+    mutate(Region = factor(Region, levels=c("Coast", "HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
+
+        ggplot(aes(x = variable, y = value, fill = Stat)) +
     geom_bar(stat = "identity", width = .6, position = "dodge") +
     labs( x = NULL, y = 'Score' ) +
     facet_grid(. ~ Region ) +
     scale_fill_manual(values = apal) +
     theme_bw() +
     theme(text = element_text(size=15)) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4))
   
   return(a)
 }
+
+
+#--- TSS by Depth for Regions ---
+# Single stat; no melting or legent required.
+Plot.TSS.By.Depth.For.Regions <- function( dat.table, apal){
+  
+  a <- dat.table  %>%
+    # Adjust levels for correct faceting ... 
+    mutate(Region = factor(Region, levels=c("Coast", "HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
+    ggplot(aes(x = Ribbon, y = TSS)) +
+    geom_bar(stat = "identity", width = .6, position = "dodge", fill = apal ) +
+    labs( x = NULL, y = 'TSS' ) +
+    facet_grid(. ~ Region ) +
+#    scale_fill_manual(values = apal) +
+    theme_bw() +
+    theme(text = element_text(size=15)) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4))
+  
+  return(a)
+}
+
+
+#-- TSS by Class for Regions: With Coast partitioned as well.
+#   So no Coast class ...   
+Plot.TSS.By.Depth.For.Regions2 <- function( dat.table, apal){
+
+    #foo <- melt( dat.table )
+  
+  a <- dat.table  %>%
+    # Adjust levels for correct faceting ... 
+    mutate(Region = factor(Region, levels=c("HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
+    
+    ggplot(aes(x = Ribbon, y = TSS, fill = Model)) +
+    geom_bar(stat = "identity", width = .6, position = "dodge") +
+    labs( x = NULL, y = 'TSS' ) +
+    facet_grid(. ~ Region ) +
+    scale_fill_manual(values = apal) +
+    theme_bw() +
+    theme(text = element_text(size=15)) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4))
+  
+  return(a)
+}
+
+head( melt( z[ , c('Model', 'Region', 'Ribbon', 'TSS')] ))
 
 
 #-------------- FACETED IDE Statistics --------------------
 
 #--- Integrated Statistics by IDS faceted by Region ---
 #   Statistics are a fixed, selected list.
-Plot.Stat.By.IDS.For.Regions <- function( csv, apal ){
+Plot.Stat.By.IDS.For.Regions <- function( df, apal ){
 
-  dat.table <- read.csv(file = file.path(output.dir, csv) )
-  x <- dat.table[, c( 'Model', 'Test.Data', 'TSS', 'Accuracy', 'TNRWtd' )]
+  x <- df[, c( 'Region', 'Test.Data', 'TSS', 'Accuracy', 'TNRWtd' )]
   
-  foo <- melt( x, id.vars = c('Model','Test.Data') )
+  foo <- melt( x, id.vars = c('Region','Test.Data') )
   
   a <- foo %>%
     ggplot(aes(x = variable, y = value, fill = Test.Data)) +
     geom_bar(stat = "identity", width = .6, position = "dodge") +
     labs( x = NULL, y = 'Score' ) +
-    facet_grid(. ~ Model) +
+    facet_grid(. ~ Region) +
     
     theme_bw() +
     theme(text         = element_text(size=15), 
@@ -222,10 +291,9 @@ Plot.Stat.By.IDS.For.Regions <- function( csv, apal ){
 
 #--- IDE evaluation Producer and User stats by Class for Regions ---
 #   NEEDS UPDATED DATA TABLE ... 
-Plot.IDS.Class.Stats.For.Regions  <- function( csv, apal ){
-  dat.table <- read.csv(file = file.path(output.dir, csv) )
+IDS.Class.Stats.For.Regions  <- function( df, apal ){
   
-  a <- dat.table %>%
+  a <- df %>%
     ggplot(aes(x = Test.Data, y = Accuracy, fill = Test.Data)) +
     geom_bar(stat = "identity", width = .6, position = "dodge") +
     facet_grid(. ~ Model) +

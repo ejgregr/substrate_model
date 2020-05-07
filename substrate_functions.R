@@ -7,7 +7,8 @@
 #   to use ranger() library and expand to do independent data evaluation.
 #
 # Notes:
-#  - 
+#  - 2020/05/01: Some serious pruning of the data load functions. Combined with 
+# consolidating of data cleaning. 
 #----------------------------------------------------------------------------
 
 
@@ -36,12 +37,22 @@ lapply(required.packages, require, character.only = TRUE)
 
 #-- As per Cole's reporting code, set an output directory and initiate the log file.
 #       Directory will be created if doesn't exist; file will be overwritten if it does.
-output.dir    <- 'C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results'
+results.dir   <- 'C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results'
 model.dir     <- 'C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Models'
-predictor.dir <- 'C:/Data/SpaceData/Substrate2019/Predictors/'
+predictor.dir <- 'C:/Data/SpaceData/Substrate2019/Predictors'
+coastPred.dir <- 'C:/Data/SpaceData/Substrate2019/Predictors/Coastwide'
+source.dir    <- 'C:/Data/SpaceData/Substrate2019'
+
+# Sources of all the necessary spatial data including regions and observations.
+# Data last updated May 30 2020. 
+source.files  <- list( 'Obs'     = 'obs.shp',
+                       'Dive'    = 'IndependentData/All__BHM_SpatPts.shp',
+                       'Cam'     = 'IndependentData/All_DropCam_SpatPts.shp',
+                       'ROV'     = 'IndependentData/All_ROV_SpatPts.shp',
+                       'Regions' = 'regions/BC_coast_regions.shp' )
 
 # filepath to predictor directory (rasters must be tif format)
-predictors.coastwide <- 'C:/Data/SpaceData/Substrate2019/Predictors/Coastwide'
+
 bioregions <- c('HG','NCC','WCVI','QCS','SOG')
 
 #-- Regression formulas
@@ -50,82 +61,48 @@ bioregions <- c('HG','NCC','WCVI','QCS','SOG')
 shore.formula <- "BType4 ~ bathy + broad_BPI + circulation + curvature + fine_BPI + med_BPI + rugosity + sd_slope + slope + tidal + fetch"
 coast.formula <- "BType4 ~ bathy + broad_BPI + circulation + curvature + fine_BPI + med_BPI + rugosity + sd_slope + slope + tidal"
 
-
-# Source of obs data. Obtained Dec 2020. 
-# Working layers modifed in GIS to ensure BType4 and Region fields added. 
-sourceGDB <- 'C:/Data/SpaceData/Substrate2019/IDE work.gdb'
-
 # proj4 string for albers projection with NAD83 datum
 spat.ref <- '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +datum=NAD83 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0'
 
 #-- Log file to be placed in output.directory 
 log.file <- 'IDE_test_log.txt'
 
-#----------------------------------------------------------------------------
-#-- Set relevant RF constants. 
+#-- Relevant RF constants. (Had 2 imps but one was for Random Forest)
+RFC <- list( 'ntree'=1000, 'repl'=TRUE, 'imp'='impurity', 'test.frac'=0.6 )
 
-ntree = 1000
-repl  = TRUE
-imp.1 = TRUE
-imp.2   = 'impurity'
-test.frac <- 0.6
 
 #============================================================================
 #-- Functions.   
 
+#=============== ANALYSIS ===================
 
-#--------------------------------------------------------------
-# Builds a random forest model for the specified region
-# Returns a list with the final model fitted to all the data, 
-# and a summary table of the re-sampled performance statistics.
+
+#---------------------------------------------------------------------------------------
+# Builds a random forest model using ranger() using the provided train and test samples.
+# 2020/04/13: Created to surface train and testing subsaamples. 
+# Returns a list with the final fitted model
+# and a summary table of performance statistics.
 # Requires - list of model names
 # Calls    - Results.Row()
-Make.Ranger.Model <- function( x.data, x.formula, partition = 0.7, iterations = 1  ){
+Fixed.Ranger.Model <- function( x.train, x.test, x.formula ){
   
-  y <- nrow( x.data )
   out.table <- NULL
   
-  for (i in 1:iterations ){
-    
-    #-- build the train/test partition ... 
-    idx <- sample( 1:y, round(partition * y), replace = FALSE )
-    z <- replace( rep(0, y), idx, 1)
-    xx <- cbind(x, 'partition' = z )
-    
-    x.train <- xx[ xx$partition == 1, ]
-    x.test  <- xx[ xx$partition == 0, ]
-    
-    #-- build a weighted model ... 
-    props <- x.train %>% group_by(BType4) %>% count(BType4) 
-    wts <- 1 - ( props$n / sum( props$n ))
-    x.model <- ranger( x.formula,
-                       data = x.train,
-                       num.trees = ntree, replace = repl, importance = imp.2, oob.error = T,
-                       case.weights = wts[ x.train$BType4 ])    #Define case.weights
-    
-    #-- Evaluate with testing partition  ...
-    out.table <- rbind( out.table, Results.Row( x.model, x.test )) 
-    print(i)
-  }
-  
-  #-- Build the model result entry.
-  if (iterations > 1)
-    z <- Summary.Row( out.table[, -1] )
-  else {
-    z <- out.table
-  }
-  #-- Build the model with all the training data.
-  props <- x.data %>% group_by(BType4) %>% count(BType4) 
+  #-- build a weighted model ... 
+  props <- x.train %>% group_by(BType4) %>% count(BType4) 
   wts <- 1 - ( props$n / sum( props$n ))
   x.model <- ranger( x.formula,
-                     data = x.data,
-                     num.trees = ntree, replace = repl, importance = imp.2, oob.error = T,
-                     case.weights = wts[ x.data$BType4 ])    #Define case.weights
+                     data = x.train,
+                     num.trees = RFC$ntree, replace = RFC$repl, importance = RFC$imp, oob.error = T,
+                     case.weights = wts[ x.train$BType4 ])    #Define case.weights
   
-    return( list( 'Stats' = z, 'Model' = x.model ))
+  #-- Evaluate with testing partition  ...
+  out.table <- rbind( out.table, Results.Row( x.model, x.test )) 
+
+  return( list( 'Stats' = out.table, 'Model' = x.model ))
 }
 
-       
+
 #------------------------------------------------------------------------------------
 # Calculate the reporting statistics for an RF model (testModel), 
 # based on a set of observations (testData). 
@@ -149,9 +126,9 @@ Results.Row <- function( testModel, testData ){
     "N"         = nrow( testData),
     "Imbalance" = round( prev, mant ), 
     "OOB"       = round( testModel$prediction.error, mant ),
-    "Accuracy"  = round( as.numeric( z$overall[ 'Accuracy' ]), mant ),
-    "BERneg"    = round( 1-ber, mant ), 
     "TSS"       = TSS.Calc( z$table ),
+    "Accuracy"  = round( as.numeric( z$overall[ 'Accuracy' ]), mant ),
+#    "BERneg"    = round( 1-ber, mant ), 
     round( Wtd.Stats( z ), mant ),
     round( diffr.Stats( z$table )/nrow(testData), mant )
   )
@@ -167,14 +144,15 @@ Results.Row <- function( testModel, testData ){
 
 # #-- Testing Results.Row ...
 # Results.Row( foo$Model, x )
-# y <- predict( foo$Model, x )
-# rows(x)
-# y$predictions
-# z <- caret::confusionMatrix( y$predictions, x$BType4 )
-# z$table
-# dim(x)[[1]]
-# round( diag(z$table/dim(x)[[1]]) / rowSums(z$table/dim(x)[[1]]), 3)
-
+# z <- predict( foo$Model, y )
+# a <- caret::confusionMatrix( z$predictions, y$BType4 )
+# a$byClass
+# 
+# a$overall
+# 
+# round( diag(a$table/dim(y)[[1]]) / rowSums(z$table/dim(x)[[1]]), 3)
+# 
+# sum( diag(a$table/dim(y)[[1]]) ) # Accuracy calculation. NOTE dividing by total N. 
 
 #---------------------------------------
 # Summarizes a data.frame of statistics
@@ -279,7 +257,6 @@ diffr.Stats <- function( cTable ){
 # y <- diffTablej( x, digits = 0, analysis = "error" )
 
 
-
 #----------------------------------
 #-- Weighted Specificity (true negative rate), and TSS calculations
 #   TSS calculation taken from Fit_Random_Forest.R and based on Allouche et al. 2006.
@@ -296,7 +273,8 @@ Wtd.Stats <- function( cTable ){
   #Sens <- sum( x$Sensitivity * x$Prevalence )
   Spec <- sum( x$Specificity * x$Prevalence )
   
-  return( data.frame( 'TSSWtd' = TSS, 'TNRWtd' = Spec ))
+#  return( data.frame( 'TSSWtd' = TSS, 'TNRWtd' = Spec ))
+return( data.frame( 'TNRWtd' = Spec ))
 }
 
 
@@ -323,74 +301,172 @@ Prev.Balance <- function( plist ){
 }
 
 
-#--------------------------------------------------------
-# Pulls all the ID set data together for coastal tests ... 
-# USES train.data as a global variable. 
-Assemble.Coast.Test <- function( indat ){
-  x <- rbind( indat[['NCC']], indat[['HG']], indat[['WCVI']], indat[['QCS']], indat[['SOG']] )
-  return( x )
+#---------------------------------------------------------------------------------------------
+# For the provided sample: 1) partition the data; 2) build train model, 3) build a full model
+# build a RF model with partitioned subset data
+# evaluate model with withheld data (should be same sample size ans i-1 model )
+Test.Sample.Size <- function( obs, howMany, part, theForm ){
+  
+  N <- nrow( obs )
+  results <- NULL
+  
+  for (i in 1:howMany) {
+    
+    # pull the sample ... 
+    RF.sample <- obs[ sample( 1:N, (i/howMany * N) ), ]
+    
+    # partition the sample ... 
+    x <- sample( 1:nrow(RF.sample), part * nrow(RF.sample) )
+    x.train <- RF.sample[ x, ]
+    x.test  <- RF.sample[ -x, ]
+    
+    cat("train N", nrow(x.train), "\n") 
+    # Build the weighting vector ...
+    prop.Btype4 <- x.train %>% group_by(BType4) %>% count(BType4) 
+    wts <- 1 - ( prop.Btype4$n / sum( prop.Btype4$n ))
+    
+    # Build the coastwide model ... 
+    anRF <- ranger( theForm,
+                    data = x.train,
+                    num.trees = RFC$ntree, replace = RFC$repl, importance = RFC$imp,
+                    case.weights = wts[ x.train$BType4 ])    #Define case.weights
+    
+    #-- Evaluate the model using the test partition.
+    results <- rbind( results, Results.Row( anRF, x.test )) 
+    print(i)
+    
+  }
+  return( results ) 
 }
 
 
-#------------------------------------------
-# Load all the observational data, obs plus the ID sets. 
-# Just a wrapper function to make a bunch of calls.
-Load.Observations <- function(){
+#---------------------------------------------------------------------------------------------
+# For the provided sample: 1) partition the data ranging from even prevalence to imbalance = NN;
+# 2) build an model with training data; 3) evaluate the model with testing partition.
+# REQUIRES: obs class attribute = BType; Needs to have 4 classes.
+Test.Prevalence <- function( obs, N, part, theForm ){
   
-  ptSources <- list( 'obs', 'BHM_habitat', 'DropCam_reg', 'ROV_reg')
-  names(ptSources) <- c('train', 'dive', 'cam', 'ROV')
+  results <- NULL
   
-  #-- Load Coastwide observations (created by Cole's code)
-  #   Provided here as a shape file, which I copied to the working gdb file.
-  obs.in <- Load.Obs.Data( sourceGDB, ptSources$train )
-
-    #-- Load independent data sets. 
-  dive.in  <- Load.Test.Data( sourceGDB, ptSources$dive, 
-                              c("SourceDB", "Key", "DepthCat", "SubCat", "SubSubCat", "BType4") )
-  dive.in$BType4 <- factor(dive.in$BType4)
+  #-- Build the partion sizes first  ...
+  #   NEED to 1) fix sample size and 
+  #           2) change prevlance of one category only to avoid conflating things ... 
   
-  cam.in  <- Load.Test.Data( sourceGDB, ptSources$cam,
-                             c("Survey", "Transect", "RMSM_cat", "Substrate1", "Substrate2", "BType4") )
-  cam.in$BType4 <- factor(cam.in$BType4)
-  
-  rov.in  <- Load.Test.Data( sourceGDB, ptSources$ROV,
-                             c("Survey", "Transect", "RMSM_cat", "Substrate1", "Substrate2", "BType4") )
-  rov.in$BType4 <- factor(rov.in$BType4)
-  
-  foo <- list( obs.in, dive.in, cam.in, rov.in )
-  names(foo) <- names( ptSources )
-  
-  return(foo)
+  #-- increase prevalence of rock from 0.25 to 0.85 ... 
+  w <- list()
+  #  i = 0
+  for (i in seq(0, 0.6, by=0.05) ) {
+    
+    w[1] <- 0.25 - i/3
+    w[2] <- 0.25 + i
+    w[3] <- 0.25 - i/3
+    w[4] <- 0.25 - i/3
+    
+    cat( paste( w[1], w[2], w[3], w[4] ), '\n')
+    
+    RF.sample <- rbind( 
+      b1 <- sample_n( obs[ obs$BType4 == 1, ], round( w[[1]] * N )),
+      b2 <- sample_n( obs[ obs$BType4 == 2, ], round( w[[2]] * N )),
+      b3 <- sample_n( obs[ obs$BType4 == 3, ], round( w[[3]] * N )),
+      b4 <- sample_n( obs[ obs$BType4 == 4, ], round( w[[4]] * N ))
+    )  
+    
+    # partition the sample ... 
+    x <- sample( 1:nrow(RF.sample), part * nrow(RF.sample) )
+    x.train <- RF.sample[ x, ]
+    x.test  <- RF.sample[ -x, ]
+    
+    cat("train N", nrow(x.train), "\n") 
+    # Build the weighting vector ...
+    prop.Btype4 <- x.train %>% group_by(BType4) %>% count(BType4) 
+    wts <- 1 - ( prop.Btype4$n / sum( prop.Btype4$n ))
+    
+    # Build the coastwide model ... 
+    anRF <- ranger( theForm,
+                    data = x.train,
+                    num.trees = RFC$ntree, replace = RFC$repl, importance = RFC$imp,
+                    case.weights = wts[ x.train$BType4 ])    #Define case.weights
+    
+    #-- Evaluate the model using the test partition.
+    results <- rbind( results, Results.Row( anRF, x.test )) 
+    print(i)
+    
+  }
+  return( results ) 
 }
+
+
+
+#============================================ DATA PREPARATION  =================================
+
+#---------------------------------------------
+# Partition input points according to regions.
+# Region names and source features hard-coded in function
+# Returns: List of point dataframes, one for each region
+Partition.Test.Data <- function( pts ){
   
+  out <- list()
   
-#-----------------------------
-# Load COASTWIDE predictors. 
-Add.100m.Data <- function( obsList ){
+  #-- Load the regions shape file containing the region pgons ... 
+  pgons <- readOGR( file.path(source.dir, "/regions/BC_coast_regions.shp") )
   
-  rasters <- Load.Predictors( predictors.coastwide )
-  preds  <- raster::extract(rasters, obsList, df = TRUE)
-  merged <- cbind( as.data.frame(obsList), preds)
-  return(merged)
+  drop.list <- c('BT_Sorc','Rock','X','Y','ID')
+  
+  x <- pts@data
+  x$BType4 <- as.factor( x$BType4 )
+  #-- Return corrected coast  first ... 
+  y <- x[ , !colnames(x) %in% drop.list ]
+  names(y)[3:12] <- names.100m 
+  out <- c( out, list( 'Coast' = y) )
+  
+  x <- pts[ pgons[ pgons$Region == "Haida Gwaii",], ]@data
+  y <- x[ , !colnames(x) %in% drop.list ]
+  names(y)[3:12] <- names.100m 
+  out <- c( out, list( 'HG' = y) )
+  
+  x = pts[ pgons[ pgons$Region == "North Central Coast",], ]@data
+  y <- x[ , !colnames(x) %in% drop.list ]
+  names(y)[3:12] <- names.100m 
+  out <- c( out, list( 'NCC' = y) )
+  
+  x = pts[ pgons[ pgons$Region == "West Coast Vancouver Island",], ]@data
+  y <- x[ , !colnames(x) %in% drop.list ]
+  names(y)[3:12] <- names.100m 
+  out <- c( out, list( 'WCVI' = y) )
+  
+  x = pts[ pgons[ pgons$Region == "Queen Charlotte Strait",], ]@data
+  y <- x[ , !colnames(x) %in% drop.list ]
+  names(y)[3:12] <- names.100m 
+  out <- c( out, list( 'QCS' = y) )
+  
+  x = pts[ pgons[ pgons$Region == "Strait of Georgia",], ]@data
+  y <- x[ , !colnames(x) %in% drop.list ]
+  names(y)[3:12] <- names.100m 
+  out <- c( out, list( 'SOG' = y) )
+  
+  return( out )
 }
 
 
 #----------------------------
-# Load REGIONAL predictors.
+# Load 20 m (regional) predictor variables.
 # Grabs the predictor values from the 20 m rasters. By region.
 # Requires: list of points, fewer attributes is better! 
 # Global var: bioregions 
-Add.20m.Data <- function( obsList ){
-
+Add.20m.Preds <- function( obsList ){
+  
   outList <- vector("list", length = length(bioregions) )
   names( outList ) <- bioregions
   
   for (i in bioregions ) {
     rasters <- Load.Predictors( paste0( predictor.dir, "/", i ))
     preds  <- raster::extract(rasters, obsList, df = TRUE)
-    # remove awkward fields ... 
-    preds <- preds[, !names(preds) %in% c('ID') ]
+    # Drop ID as it duplicates source points  ... 
+    preds <- preds[, !names(preds) %in% c('ID' ) ]
     merged <- cbind( as.data.frame(obsList), preds)
+    
+    merged <- merged[, !names(merged) %in% c('coords.x1', 'coords.x2' ) ]
+    
     outList[[ i ]] <- drop_na( merged )
     
     cat( i, ' loaded ...\n')
@@ -428,164 +504,139 @@ Diff.Sets <- function( x, y){
 }
 
 
-#----------------------------------------------------------------------------
-# Load test data from specified geodatabase and feature class. Preserves the columns. 
-# BType4 is required field, containing the classifed idendependent test data. 
-Load.Test.Data <- function( gdb, fc, columns ) {
-  
-  # for reading into ESRI File Geodatabase
-  subset(ogrDrivers(), grepl('GDB', name))
-  
-  # read the feature class specified by user
-  GIS.data <- readOGR(dsn = gdb, layer = fc)
-  
-  # Keep only COLUMNS specified from the GIS POINTS DATA FRAME ... 
-  observations <- GIS.data[, (names(GIS.data) %in% columns)] 
-  
-  # make X, Y columns (even if already exist to recreate spatial points dataframe later)
-  observations$X <- observations@coords[, 1]
-  observations$Y <- observations@coords[, 2]
-  
-  # number of observations before dropping invalid BType4 values
-  observations.before <- nrow(observations)
- 
-  # make sure that BType4 column has only values 1:4
-  observations <- observations[observations$BType4 %in% c(1, 2, 3, 4), ]
-  
-  # number of observations after dropping any records with invalid BType4 values
-  observations.after <- nrow(observations)
-  
-    # write a summary to the log file ... a BIT UNORTHODOX for a function perhaps. 
-  sink( file = file.path( output.dir, log.file ), append=TRUE)
-  
-  cat('\n\n\n***********************************************\n\n\n')
-  cat(paste0('\nNumber of observations before omitting records with invalid BType4 values:\n', observations.before))
-  cat(paste0('\n\nNumber of observations omitted due to records with invalid BType4 values:\n', observations.before - observations.after))
-  # percent of observations dropped
-  cat(paste0('\n\n', round(observations.after / observations.before * 100, 2), '% of observations have been kept after omitting records with invalid BType4 values'))
-  
-  # stop sink to log file
-  sink()
-  
-  return( observations )
+#-----------------------------
+# Load COASTWIDE predictors. 
+Add.100m.Data <- function( obsList ){
+  rasters <- Load.Predictors( predictors.coastwide )
+  preds  <- raster::extract(rasters, obsList, df = TRUE)
+  merged <- cbind( as.data.frame(obsList), preds)
+  return(merged)
 }
 
 
 #----------------------------------------------------------------------------
-# Loads observations from specified geodatabase and feature class
-Load.Obs.Data <- function( gdb, fc ) {
-
-  # for reading into ESRI File Geodatabase
-  subset(ogrDrivers(), grepl('GDB', name))
+# Straight up load of the independent point data sets from source shapefiles. 
+# REQUIRES: source.dir to be set.  
+# RETURNS: list of PointFeatures
+Load.Point.Data <- function( shplist ) {
   
-  # read the feature class specified by user
-  obs <- readOGR(dsn = gdb, layer = fc)
-  obs$BType4 <- factor( obs$BType4 )
-  
-  # Columns to keep ... 
-  # columns <- c("BType4", "bathy", "brd_BPI", "circltn", "curvatr", "fetch", "fin_BPI", "med_BPI", 
-  #              "rugosty", "sd_slop", "slope", "tidal") 
-  # 
-  # # convert to data frame with no spatial attributes ... 
-  # obs <- obs[, (names(obs) %in% columns)] 
-  
-  return(obs)
-}
+  a <- list()
 
-
-#---------------------------------------------------------------------------------------------
-# For the provided sample: 1) partition the data; 2) build train model, 3) build a full model
-# build a RF model with partitioned subset data
-# evaluate model with withheld data (should be same sample size ans i-1 model )
-Test.Sample.Size <- function( obs, howMany, part, theForm ){
-  
-  N <- nrow( obs )
-  results <- NULL
-  
-  for (i in 1:howMany) {
-    
-    # pull the sample ... 
-    RF.sample <- obs[ sample( 1:N, (i/howMany * N) ), ]
-    
-    # partition the sample ... 
-    x <- sample( 1:nrow(RF.sample), part * nrow(RF.sample) )
-    x.train <- RF.sample[ x, ]
-    x.test  <- RF.sample[ -x, ]
-    
-    cat("train N", nrow(x.train), "\n") 
-    # Build the weighting vector ...
-    prop.Btype4 <- x.train %>% group_by(BType4) %>% count(BType4) 
-    wts <- 1 - ( prop.Btype4$n / sum( prop.Btype4$n ))
-    
-    # Build the coastwide model ... 
-    anRF <- ranger( theForm,
-                    data = x.train,
-                    num.trees = ntree, replace = repl, importance = imp.2,
-                    case.weights = wts[ x.train$BType4 ])    #Define case.weights
-    
-    #-- Evaluate the model using the test partition.
-    results <- rbind( results, Results.Row( anRF, x.test )) 
-    print(i)
-    
-    }
-  return( results ) 
-}
-
-
-#---------------------------------------------------------------------------------------------
-# For the provided sample: 1) partition the data ranging from even prevalence to imbalance = NN;
-# 2) build an model with training data; 3) evaluate the model with testing partition.
-# REQUIRES: obs class attribute = BType; Needs to have 4 classes.
-Test.Prevalence <- function( obs, N, part, theForm ){
-  
-  results <- NULL
-
-  #-- Build the partion sizes first  ...
-  #   NEED to 1) fix sample size and 
-  #           2) change prevlance of one category only to avoid conflating things ... 
-
-  #-- increase prevalence of rock from 0.25 to 0.85 ... 
-  w <- list()
-#  i = 0
-  for (i in seq(0, 0.6, by=0.05) ) {
-
-    w[1] <- 0.25 - i/3
-    w[2] <- 0.25 + i
-    w[3] <- 0.25 - i/3
-    w[4] <- 0.25 - i/3
-    
-    cat( paste( w[1], w[2], w[3], w[4] ), '\n')
-
-    RF.sample <- rbind( 
-      b1 <- sample_n( obs[ obs$BType4 == 1, ], round( w[[1]] * N )),
-      b2 <- sample_n( obs[ obs$BType4 == 2, ], round( w[[2]] * N )),
-      b3 <- sample_n( obs[ obs$BType4 == 3, ], round( w[[3]] * N )),
-      b4 <- sample_n( obs[ obs$BType4 == 4, ], round( w[[4]] * N ))
-    )  
-
-    # partition the sample ... 
-    x <- sample( 1:nrow(RF.sample), part * nrow(RF.sample) )
-    x.train <- RF.sample[ x, ]
-    x.test  <- RF.sample[ -x, ]
-    
-    cat("train N", nrow(x.train), "\n") 
-    # Build the weighting vector ...
-    prop.Btype4 <- x.train %>% group_by(BType4) %>% count(BType4) 
-    wts <- 1 - ( prop.Btype4$n / sum( prop.Btype4$n ))
-    
-        # Build the coastwide model ... 
-    anRF <- ranger( theForm,
-                    data = x.train,
-                    num.trees = ntree, replace = repl, importance = imp.2,
-                    case.weights = wts[ x.train$BType4 ])    #Define case.weights
-    
-    #-- Evaluate the model using the test partition.
-    results <- rbind( results, Results.Row( anRF, x.test )) 
-    print(i)
-    
+  for (i in shplist) {
+    a <- c( a, 
+            list( 'dat' = readOGR( file.path(source.dir, i )) ))
   }
-  return( results ) 
+  
+  names( a ) <- names( shplist )
+  return( a )
 }
 
+
+#---------------------------------------------------------------------------
+# Partition observations into training and testing when resampling the data. 
+# train is assigned 1, testing remains 0. 
+split.Obs.Data <- function( obs, seed, train.size ){
+  
+  set.seed( seed  )  # ensure repeatable results
+  y <- nrow( obs ) # num of rows in the data.frame
+  
+  b <- sample( 1:y, round( train.size * y ), replace = FALSE )
+  c <- replace( rep(0, y), b, 1)
+  
+  return( c )
+}
+
+
+#--------------------------------------------------------
+# Pulls all the ID set data together for coastal tests ... 
+# USES train.data as a global variable. 
+Assemble.Coast.Test <- function( indat ){
+  x <- rbind( indat[['NCC']], indat[['HG']], indat[['WCVI']], indat[['QCS']], indat[['SOG']] )
+  return( x )
+}
+
+
+#--------------------------------------------------------------
+# Builds a random forest model with internal partitioning of train/test data. 
+# 2020/04/13: No longer used. Intent was to re-sample partitions but dropped from the paper. 
+Rand.Ranger.Model <- function( x.data, x.formula, partition = 0.7, iterations = 1  ){
+  
+  y <- nrow( x.data )
+  out.table <- NULL
+  
+  for (i in 1:iterations ){
+    
+    #-- build the train/test partition ... 
+    idx <- sample( 1:y, round(partition * y), replace = FALSE )
+    z <- replace( rep(0, y), idx, 1)
+    xx <- cbind(x, 'partition' = z )
+    
+    x.train <- xx[ xx$partition == 1, ]
+    x.test  <- xx[ xx$partition == 0, ]
+    
+    #-- build a weighted model ... 
+    props <- x.train %>% group_by(BType4) %>% count(BType4) 
+    wts <- 1 - ( props$n / sum( props$n ))
+    x.model <- ranger( x.formula,
+                       data = x.train,
+                       num.trees = RFC$ntree, replace = RFC$repl, importance = RFC$imp, oob.error = T,
+                       case.weights = wts[ x.train$BType4 ])    #Define case.weights
+    
+    #-- Evaluate with testing partition  ...
+    out.table <- rbind( out.table, Results.Row( x.model, x.test )) 
+    print(i)
+  }
+  
+  #-- Build the model result entry.
+  if (iterations > 1)
+    z <- Summary.Row( out.table[, -1] )
+  else {
+    z <- out.table
+  }
+  #-- Build the model with all the training data.
+  props <- x.data %>% group_by(BType4) %>% count(BType4) 
+  wts <- 1 - ( props$n / sum( props$n ))
+  x.model <- ranger( x.formula,
+                     data = x.data,
+                     num.trees = RFC$ntree, replace = RFC$repl, importance = RFC$imp, oob.error = T,
+                     case.weights = wts[ x.data$BType4 ])    #Define case.weights
+  
+  return( list( 'Stats' = z, 'Model' = x.model ))
+}
+
+# # Older number-checking code for Load.Test.Data(). 
+#   # for reading into ESRI File Geodatabase
+#   subset(ogrDrivers(), grepl('GDB', name))
+#   
+#   # read the feature class specified by user
+#   GIS.data <- readOGR(dsn = gdb, layer = fc)
+#   
+#   # Keep only COLUMNS specified from the GIS POINTS DATA FRAME ... 
+#   observations <- GIS.data[, (names(GIS.data) %in% columns)] 
+#   
+#   # make X, Y columns (even if already exist to recreate spatial points dataframe later)
+#   observations$X <- observations@coords[, 1]
+#   observations$Y <- observations@coords[, 2]
+#   
+#   # number of observations before dropping invalid BType4 values
+#   observations.before <- nrow(observations)
+#  
+#   # make sure that BType4 column has only values 1:4
+#   observations <- observations[observations$BType4 %in% c(1, 2, 3, 4), ]
+#   
+#   # number of observations after dropping any records with invalid BType4 values
+#   observations.after <- nrow(observations)
+#   
+#     # write a summary to the log file ... a BIT UNORTHODOX for a function perhaps. 
+#   sink( file = file.path( output.dir, log.file ), append=TRUE)
+#   
+#   cat('\n\n\n***********************************************\n\n\n')
+#   cat(paste0('\nNumber of observations before omitting records with invalid BType4 values:\n', observations.before))
+#   cat(paste0('\n\nNumber of observations omitted due to records with invalid BType4 values:\n', observations.before - observations.after))
+#   # percent of observations dropped
+#   cat(paste0('\n\n', round(observations.after / observations.before * 100, 2), '% of observations have been kept after omitting records with invalid BType4 values'))
+#   
+#   # stop sink to log file
+#   sink()
 
 ### fin.

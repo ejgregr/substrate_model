@@ -16,50 +16,85 @@
 #   Depth_compare_regions.csv : Statistic basket for depth zones, by Region
 #********************************************************************************
 
+# Define the depth classes ... 
+#z.breaks <- c( -5000, -50, -20, -10, -5, 0, 1000)
+z.breaks <- c( -1000, 0, 5, 10, 20, 50, 5000)
+z.ribs <- c('ITD', '0-5', '5-10', '10-20', '20-50', '50+')
 
-#===========================================================================
-#-- Part 1: Compare 100 m model to 20 m regional models, across depth zones
+
+#======================= Testing with withheld Obs =========================
+#-- Compare 100 m model and 20 m regional models, across depth zones
 #   to see if there is a depth- resolution linkage. uses withheld obs data. 
 
-results.table <- NULL
-z.table <- NULL
+#-------------------------------------------------
+# Returns a row of results testing the model againsts the Obs test data. 
+# GLOBAL vars: z.breaks, z.ribs, rf models, obs.20mIV
 
-# Define the depth classes ... 
-z.breaks <- c( -5000, -50, -20, -10, -5, 0, 1000)
-z.ribs <- c('ITD', "0-5", "5-10", "10-20", "20-50", "50+")
+Model.Fit.Obs.By.Depth <- function( regName, mant = 3 ){
 
-#---------------------------------------------------
-# Grab 0. TRAINING DATA: 
-rm( 'x.sub', 'x.test')
-x.test <- train.data.100m
-j <- "Train"
-z.row <- NULL
-
-#- confirm that depths have same sign ... 
-#hist(x.test$bathy)
-#hist(train.data.100m$bathy)
-
-# Add the depthClass to the test data ... what are the levels? - they are [0,1,2,3]
-# hist(x.test$DepthCat) 
-x.test$zRibbon <- as.factor( 6 - findInterval( x.test$bathy, z.breaks) )
-
-for (k in levels(x.test$zRibbon) ){
+  rf <- eval(parse( text=paste0( "rf.region.", regName ) ))
   
-  x.sub <- x.test[ x.test$zRibbon == k, ]
-  z.row <- cbind( z.row, round( mean(x.sub$bathy), 2) )
-  
-  # build the row label ... 
-  compare.what <- data.frame( 'Test Data' = j, 'Ribbon' = z.ribs[ as.numeric(k) + 1 ] )
-  
-  # make the results ... 
-  w <- Results.Row( m.model, x.sub )
-  x <- cbind( compare.what, w$Integrated )
-  results.table <- rbind( results.table, x ) 
+  if (regName == 'Coast') {
+    tdat <- obs.100mIV
+  } else
+    tdat <- eval(parse( text=paste0( 'obs.20mIV$', regName ) ))
+
+  tdat <- tdat[ tdat$TestDat == 1, ]
+  tdat$zClass <- as.factor( findInterval( tdat$bathy, z.breaks) )
+
+  results <- NULL  
+  # loop thru each level, calculating performance of data subset 
+  for (k in levels( tdat$zClass ) ){
+    x.sub <- tdat[ tdat$zClass == k, ]
+
+    # build the row label ... 
+    compare.what <- data.frame( 'Ribbon' = z.ribs[ as.numeric(k) ], 
+                                'meanZ' = round( mean( x.sub$bathy ), mant ) )
+    
+    # make the results ... 
+    w <- Results.Row( rf, x.sub )
+    x <- cbind( compare.what, w$Integrated )
+    results <- rbind( results, x ) 
+  }
+  return (results)
 }
-z.row <- data.frame (z.row )
-colnames( z.row ) <- z.ribs
-z.row <- cbind('IDS' = j, z.row)
-z.table <- rbind( z.table, z.row)
+
+# Tidy ... 
+#rm(x.test, x.sub, a, foo, w, x, y, z, z.row, j, k)
+
+#-- For the 100 m model, how does it perform (against withheld obs) by Depth within Depth?
+# Model is fixed. 
+# INPUT: Obs test data, partitioned by region ...  
+Coast.Fit.By.Region.By.Depth <- function( tdat, mant = 3 ){
+  
+  rf <- rf.region.Coast
+  
+  tdat$zClass <- as.factor( findInterval( tdat$bathy, z.breaks) )
+  
+  results <- NULL  
+  # loop thru each level, calculating performance of data subset 
+  for (k in levels( tdat$zClass ) ){
+    x.sub <- tdat[ tdat$zClass == k, ]
+    
+    # build the row label ... 
+    compare.what <- data.frame( 'Ribbon' = z.ribs[ as.numeric(k) ], 
+                                'meanZ' = round( mean( x.sub$bathy ), mant ) )
+    
+    # make the results ... 
+    w <- Results.Row( rf, x.sub )
+    x <- cbind( compare.what, w$Integrated )
+    results <- rbind( results, x ) 
+  }
+  return (results)
+}
+
+
+
+
+#================================ IDS Tests ==================================
+
+results.table <- NULL   # Re-use this name for the results here. 
+z.table <- NULL         # A mean depth table, FWIW.
 
 #---------------------------------------------------
 # 1. DIVE DATA: Assemble the data across regions ... 
