@@ -18,7 +18,7 @@
 required.packages <- c("ggplot2", "reshape2", "tidyr","dplyr", 
                        "diffeR", "vegan", "randomForest", "ranger", "raster", "rgdal", "stringr",
                        "measures", "e1071", "caret", "PresenceAbsence", 
-                       "superheat", "PNWColors", "tmap")
+                       "superheat", "PNWColors")
 # Currently not using:  "spatialEco", "xlsx", "robustbase", "biomod2", "sp", "magrittr",
 #                       "tinytex", "rmarkdown", "binr"
 
