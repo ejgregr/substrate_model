@@ -9,6 +9,9 @@
 # Notes:
 #  - 2020/05/01: Some serious pruning of the data load functions. Combined with 
 # consolidating of data cleaning. 
+#  - 2020/05/10: All unused code removed. Includes Rand.Ranger.Model and its associated functions
+# like Summary.Row(), Wtd.Stats, ...
+
 #----------------------------------------------------------------------------
 
 
@@ -40,8 +43,8 @@ lapply(required.packages, require, character.only = TRUE)
 results.dir   <- 'C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results'
 model.dir     <- 'C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Models'
 predictor.dir <- 'C:/Data/SpaceData/Substrate2019/Predictors'
-coastPred.dir <- 'C:/Data/SpaceData/Substrate2019/Predictors/Coastwide'
 source.dir    <- 'C:/Data/SpaceData/Substrate2019'
+raster.dir    <- 'C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Rasters'
 
 # Sources of all the necessary spatial data including regions and observations.
 # Data last updated May 30 2020. 
@@ -79,11 +82,12 @@ RFC <- list( 'ntree'=1000, 'repl'=TRUE, 'imp'='impurity', 'test.frac'=0.6 )
 
 #---------------------------------------------------------------------------------------
 # Builds a random forest model using ranger() using the provided train and test samples.
-# 2020/04/13: Created to surface train and testing subsaamples. 
-# Returns a list with the final fitted model
-# and a summary table of performance statistics.
-# Requires - list of model names
-# Calls    - Results.Row()
+# 2020/04/13: Updated to surface train and testing subsamples. 
+# 2020/05/07: Dropped the randomization code earlier (hence the name Fixed). Code for the 
+#             Randomize version is in the pre- May 10 commit. 
+# Returns:  a list with the final fitted model and a summary table of performance statistics.
+# Requires: training and testing data sets, a formula. 
+# Calls:    Results.Row()
 Fixed.Ranger.Model <- function( x.train, x.test, x.formula ){
   
   out.table <- NULL
@@ -103,71 +107,37 @@ Fixed.Ranger.Model <- function( x.train, x.test, x.formula ){
 }
 
 
-#------------------------------------------------------------------------------------
-# Calculate the reporting statistics for an RF model (testModel), 
-# based on a set of observations (testData). 
-# Requires: 
-#   testModel: a weighted RF model built with ranger()
-#   testData : dataframe with correct predictors and observed BType
-#    testData must have the same predictors attached as those used to build testModel.
-# Calls:  diffr.Stats()
-#         Prev.Balance()
-#         Wtd.Stats()
+#-----------------------------------------------------------------------------------------------
+# Calculate statistics for a given RF model (testModel) and test set of observations (testData). 
+# 2020/05/10: Updated to include a subset of potential statistics, as approved by project team. 
 # Returns: a data frame with a single row. suitable for rbind().
-Results.Row <- function( testModel, testData ){
-  
-  mant <- 3
-  y <- predict( testModel, testData )
-  z <- caret::confusionMatrix( y$predictions, testData$BType4 )
-  ber <- BER(testData$BType4, y$predictions)
+# Requires: testModel: a weighted RF model built with ranger()
+#           testData : dataframe with correct predictors and observed BType
+#           testData must have the same predictors attached as those used to build testModel.
+# Calls:  diffr.Stats(); Prev.Balance()
+Results.Row <- function( testModel, testData, mant = 3 ){
+
+  x <- predict( testModel, testData )
+  y <- caret::confusionMatrix( x$predictions, testData$BType4 )
+  z <- data.frame(y$byClass)
   prev <- Prev.Balance( summary(testData$BType4) / sum( summary(testData$BType4)) )
   
   out1 <- data.frame( 
     "N"         = nrow( testData),
     "Imbalance" = round( prev, mant ), 
     "OOB"       = round( testModel$prediction.error, mant ),
-    "TSS"       = TSS.Calc( z$table ),
-    "Accuracy"  = round( as.numeric( z$overall[ 'Accuracy' ]), mant ),
-#    "BERneg"    = round( 1-ber, mant ), 
-    round( Wtd.Stats( z ), mant ),
-    round( diffr.Stats( z$table )/nrow(testData), mant )
+    "TSS"       = TSS.Calc( y$table ),
+    "Accuracy"  = round( as.numeric( y$overall[ 'Accuracy' ]), mant ),
+    'TNRWtd'    = round( sum( z$Specificity * z$Prevalence ), mant ),
+    round( diffr.Stats( y$table )/nrow(testData), mant ) #returns some pre-named, Pontius stuff.
   )
   out2 <- data.frame( 
-    "User"  = round( diag(z$table) / rowSums(z$table), mant ), 
-    "Prod"  = round( diag(z$table) / colSums(z$table), mant ),
+    "User"  = round( diag(y$table) / rowSums(y$table), mant ), 
+    "Prod"  = round( diag(y$table) / colSums(y$table), mant ),
     "PrevObs"  = round( as.vector( table( testData$BType4 )) ),
-    "PrevPred" = round( as.vector( table( y$predictions )) ))
+    "PrevPred" = round( as.vector( table( x$predictions )) ))
   
   return( list( 'Integrated' = out1, 'PerClass' = t(out2) ))
-}
-
-
-# #-- Testing Results.Row ...
-# Results.Row( foo$Model, x )
-# z <- predict( foo$Model, y )
-# a <- caret::confusionMatrix( z$predictions, y$BType4 )
-# a$byClass
-# 
-# a$overall
-# 
-# round( diag(a$table/dim(y)[[1]]) / rowSums(z$table/dim(x)[[1]]), 3)
-# 
-# sum( diag(a$table/dim(y)[[1]]) ) # Accuracy calculation. NOTE dividing by total N. 
-
-#---------------------------------------
-# Summarizes a data.frame of statistics
-# RETURNS mean and standard deviation. 
-Summary.Row <- function( inRes ){
-  
-  x <- round( apply( inRes, 2, mean ), 3)
-  y <- round( apply( inRes, 2, sd ), 4)
-  
-  z <- rbind(x,y)
-  row.names( z ) <- c('Mean', 'StdDev')
-  return( z )
-  
-  #Nice but returns a string
-  #formatC(y, format = "e", digits = 2)
 }
 
 
@@ -177,10 +147,10 @@ Summary.Row <- function( inRes ){
 #   Expected correct classifications expected by chance; 
 #   then substracts this from the diagonal values, and reports the 
 #   sum of the diagonal values. 
-# Assumes: 4x4 matrix
-# Takes: a caret contingency table
 # Returns: A single TSS statistic for the entire table.
-# NOTES: Correcting for chance success reduces the sample size on 
+# Takes:   a caret contingency table
+# Assumes: 4x4 matrix
+# Notes:   Correcting for chance success reduces the sample size on 
 #   the diagonal ... 
 TSS.Calc <- function( cTable ){
   x <- matrix( cTable, 4,4 )
@@ -224,10 +194,10 @@ TSS.Calc <- function( cTable ){
 #------------------------------------------------------------------
 #-- Calculate the quantity and allocation components of the matrix.
 #   Uses diffeR package and follows Pontius and Santacruz (2014).
-# Assumes: 4x4 matrix
-# Takes: a caret contingency table
 # Returns: A one-row data.frame of named statistics
-# Notes: This will need to be updated based on detailed review of the 
+# Takes:   a caret contingency table
+# Assumes: 4x4 matrix
+# Notes:   This will need to be updated based on detailed review of the 
 #   available statistics and Stehman and Foody (2019).
 #   diffTablej() returns Omission, Agreement, Comission, Quantity, Exchange, and Shift metrics
 #     by classes and overall.
@@ -258,31 +228,10 @@ diffr.Stats <- function( cTable ){
 
 
 #----------------------------------
-#-- Weighted Specificity (true negative rate), and TSS calculations
-#   TSS calculation taken from Fit_Random_Forest.R and based on Allouche et al. 2006.
-#   TSSwtd defined as tss/prevalence summed across classes. 
-# Takes:   A caret contingency table
-# Returns: A one-row data.frame of named statistics
-Wtd.Stats <- function( cTable ){
-  
-  x <- as.data.frame( cTable$byClass )
-  TSS <- x$Sensitivity + x$Specificity - 1
-  TSS <- sum( TSS * x$Prevalence )
-  
-  #-- Dropped cuz this looks like the accuracy calculation - 2020/02/27.
-  #Sens <- sum( x$Sensitivity * x$Prevalence )
-  Spec <- sum( x$Specificity * x$Prevalence )
-  
-#  return( data.frame( 'TSSWtd' = TSS, 'TNRWtd' = Spec ))
-return( data.frame( 'TNRWtd' = Spec ))
-}
-
-
-#----------------------------------
 #-- Calculate the imbalance in prevalence.
-# Takes: list of prevalence values
 # Returns: Generalized statistic to describe deviance from prevalence.
 #   0 is fully balanced. Max = N/number of categories
+# Takes: list of prevalence values
 # Notes: Current statistic is mean global difference among classes.
 #        Can diversity index serve as proxy for  prevalence?
 #         diversity(x, index = "shannon", MARGIN = 1, base = exp(1))
@@ -298,6 +247,49 @@ Prev.Balance <- function( plist ){
       }
     }}
   return( as.numeric( tot/denom ))
+}
+
+
+#----------------------------------
+# Function to predict a raster surface, write to disk, and export a png of the surface
+# env.predictors: raster stack of environmental predictors, ranger.model: model object, output.directory: path to output
+Predict.Surface <- function(env.predictors, ranger.model, output.directory){
+  
+  # create output directory - this creates it in the working directory. If it exists, do not show warning
+  dir.create(output.directory, showWarnings = FALSE)
+  
+  # save ranger model to disk as RData file
+  save(ranger.model, file = file.path(output.directory, 'ranger_model.RData'))
+  
+  # predict substrate using raster stack and model file
+  raster.obj <- raster::predict(object   = env.predictors,  
+                                model    = ranger.model,               
+                                progress = 'text',
+                                fun = function(model, ...) predict(model, ...)$predictions)
+  
+  # write raster file to disk
+  writeRaster(raster.obj, file.path(output.directory, 'classified_substrate.tif'), format = 'GTiff', datatype = 'INT2S')
+  
+  # generate table of proportions for each class in predicted raster
+  raster.prop <- round(100 * prop.table(table(na.omit(as.data.frame(getValues(raster.obj))))), 2)
+  
+  # colour palette for map
+  pal <- c("#999999", "#33bbff", "#ffff99", "#ffb84d")
+  
+  # labels for legend
+  labels <- c("Rock", "Mixed", "Sand", "Mud")
+  
+  # Map (up to 5,000,000 pixels)
+  png(file=file.path(output.directory, "substrate_raster.png"),
+      height = 7, width = 6, units = "in", res = 400)
+  plot(raster.obj, maxpixels=5000000, col=pal, legend=FALSE,
+       xlab = "Easting", ylab = "Northing", cex.axis = .5, cex.lab = .75)
+  legend(x = "bottomleft",
+         legend = labels, fill = pal, title=NA, bg = NA, box.col = NA)
+  
+  dev.off()
+  
+  return(list(raster.obj, raster.prop))
 }
 
 
@@ -343,7 +335,7 @@ Test.Sample.Size <- function( obs, howMany, part, theForm ){
 #---------------------------------------------------------------------------------------------
 # For the provided sample: 1) partition the data ranging from even prevalence to imbalance = NN;
 # 2) build an model with training data; 3) evaluate the model with testing partition.
-# REQUIRES: obs class attribute = BType; Needs to have 4 classes.
+# Assumes: obs class attribute = BType4 with 4 classes.
 Test.Prevalence <- function( obs, N, part, theForm ){
   
   results <- NULL
@@ -396,13 +388,194 @@ Test.Prevalence <- function( obs, N, part, theForm ){
 }
 
 
+#===============================================================================
+#-- Independent Data Evaluation
+#
+# 2020/05/10: Needs updating based on objectives.
+#
+# Comparisons include:
+#   1. Coastwide model vs. all 3 ID sets.
+#     ID merged from the regions to test coastwide.
+#     summarizes the merged IDS
+#   2. Regional models vs. all 3 ID sets. 
+#     summarizes the regional IDS
+# Build a table to hold the performance scores for the various comparisons.
+# Requires: loaded independent data (dive, cam, ROV)
+#           all RF models built.
+Do.Independent.Evaluation <- function( results=NULL ){
+  #-- Part 1: Coast model vs. each ID set. Regional IDE sets need to be assembled.  
+  
+  # Dive Data - pull the regional data together  ... 
+  x.test <- Assemble.Coast.Test( dive.20mIV )
+  
+  #-- Build the table piece ... 
+  compare.what <- data.frame( 'Region' = 'Coastwide', 'Test Data' = 'Dive' )
+  w <- Results.Row( rf.region.Coast, x.test )
+  x <- cbind( compare.what, w$Integrated )
+  results <- rbind( results, x ) 
+  
+  # Repeat for the Cam IDS  ... 
+  x.test <- Assemble.Coast.Test( cam.20mIV )
+  
+  #-- Build the table piece ... 
+  compare.what <- data.frame( 'Region' = 'Coastwide', 'Test Data' = 'Cam' )
+  w <- Results.Row( rf.region.Coast, x.test )
+  x <- cbind( compare.what, w$Integrated )
+  results <- rbind( results, x ) 
+  
+  # Repeat for the ROV IDS  ... 
+  x.test <- Assemble.Coast.Test( ROV.20mIV )
+  
+  #-- Build the table piece ... 
+  compare.what <- data.frame( 'Region' = 'Coastwide', 'Test Data' = 'ROV' )
+  w <- Results.Row( rf.region.Coast, x.test )
+  x <- cbind( compare.what, w$Integrated )
+  results <- rbind( results, x ) 
+  
+  #------------------------------------------------------------
+  #-- Part 2: Regional runs, each with all 3 ID sets.
+  #   THIS IS 5 x 3 = 15 comparisions ... with ROV exception.
+  #   Requres: Models to be loaded (rf.region.XX)
+  
+  IDS <- c("dive", "cam", "ROV")
+  
+  for (i in bioregions) {
+    # select the regional model
+    m.model <- eval(parse( text=paste0( "rf.region.", i ) ))
+    cat(i, "\n")
+    
+    for (j in IDS ){
+      cat("  ",j, "\n")  
+      
+      if (j == "ROV" && i %in% c('WCVI', 'QCS', 'SOG') ){
+        # Bail ... 
+        print( "skipping ... ")
+      } else {
+        # good to go ... except need to upper case first letter of IDS ...  
+        jj <- sapply(j, function(x) 
+          paste(toupper(substr(x,1,1)),substr(x,2,nchar(x)),sep="") )  # toupper for first character
+        compare.what <- data.frame( 'Region' = i, 'Test Data' = jj )
+        
+        # grab the IDS data ... 
+        x <- eval(parse( text=paste0( j, ".20mIV" ) ))
+        x.test <- x[[ i ]]
+        # make the results ... 
+        w <- Results.Row( m.model, x.test )
+        x <- cbind( compare.what, w$Integrated )
+        results <- rbind( results, x ) 
+      }
+    }
+  }
+  rownames( results ) <- NULL
+  return( results )
+}
+
 
 #============================================ DATA PREPARATION  =================================
 
+#-------------------------------------------------------------------------------
+# Construct summary tables of build results. 
+# Takes: The build.results table from building all the RF models. 
+# Returns: Nothing. Side effect is to write results to CSV files:
+#     Build_results_Integrated.csv
+#     Build_results_byClassStats.csv
+#     Build_results_test_ClassPrevalence.csv
+#     Build_results_varImportance.csv
+Summarize.Build <- function( build.df ){
+  # Bunch of hacking here to pull the tables together ... 
+  # Requires: build.results data.frame as input.
+  #   Includes pairs of lists for each run. 
+  #   First is list of Integrated and perClass stats; Second is list of variable importance
+  # ASSUMES 6 regions done.
+  
+  out <- list()
+  # Build a list of names ... 
+  a <- names( build.df )[c(1,3,5,7,9,11)]
+  nm <- unlist( lapply( a, strsplit, split = '\\.' ))[c(1,3,5,7,9,11)]
+  
+  
+  # Pull Integrated Stats ... number are the rows for each region-specific stat
+  x <- do.call(rbind.data.frame, 
+               build.df[ c(1,3,5,7,9,11) ] )
+  
+  # x has 2 components, the Integrated bit, .... 
+  y <- do.call( rbind.data.frame, x$Integrated )
+  
+  z <- cbind( 'Region' = nm, y )
+  row.names(z) <- NULL
+  
+  out.file <- 'Build_results_Integrated.csv'
+  write.csv( z, file = file.path(results.dir, out.file) )
+  out[[ 'build.results.Integrated' ]] <- z
+  
+  # and the PerClass bit which includes:
+  #   1) A table with both User and Producer. A df with 2 sets of rows.
+  y <- do.call( rbind,  x$PerClass )
+  z <- y[ (row.names(y) == 'User') | (row.names(y) == 'Prod') , ]
+  
+  # User first ... 
+  y.usr <- data.frame( 'Region' = nm, z[ c(1,3,5,7,9,11), ])
+  row.names(y.usr) <- NULL
+  
+  # Now producer  
+  y.prd <- data.frame( 'Region' = nm, z[ c(2,4,6,8,10,12), ])
+  row.names(y.prd) <- NULL
+  
+  zz <- rbind(
+    cbind( 'Stat' = 'User', y.usr ),
+    cbind( 'Stat' = 'Prod', y.prd ) )
+  colnames(zz) <- c('Stat','Region','Hard','Mixed','Sand','Mud')
+  out.file <- 'Build_results_byClassStats.csv'
+  write.csv( zz, file = file.path(results.dir, out.file) )
+  out[[ 'build.results.ByClass' ]] <- zz
+  
+  #   2) The prevalence of the testing obs vs. predicted.
+  z <- y[ (row.names(y) == 'PrevObs') | (row.names(y) == 'PrevPred') , ]
+  
+  # Obs first ... 
+  y.obs <- data.frame( 'Region' = nm, z[ c(1,3,5,7,9,11), ])
+  row.names(y.obs) <- NULL
+  
+  # Now predicted  
+  y.prd <- data.frame( 'Region' = nm, z[ c(2,4,6,8,10,12), ])
+  row.names(y.prd) <- NULL
+  
+  zz <- rbind(
+    cbind( 'Stat' = 'Obs', y.obs ),
+    cbind( 'Stat' = 'Pred', y.prd ) )
+  colnames(zz) <- c('Stat','Region','Hard','Mixed','Sand','Mud')
+  out.file <- 'Build_results_test_ClassPrevalence.csv'
+  write.csv( zz, file = file.path(results.dir, out.file) )
+  out[[ 'build.results.ClassPrev' ]] <- zz
+  
+  #-- And finally variable importance ... 
+  # Integrated stats first ... 
+  # 2020/04/09: Moved the ranking to the plot function so values can go thru and be displayed 
+  
+  y <- data.frame(
+    rbind( as.vector( c( build.df$Coast.Import, 0 )),
+           as.vector( build.df$HG.Import    ),
+           as.vector( build.df$NCC.Import   ),
+           as.vector( build.df$WCVI.Import  ),
+           as.vector( build.df$QCS.Import   ),
+           as.vector( build.df$SOG.Import   )
+    ))
+  
+  row.names(y) <- nm
+  colnames(y)  <- names( build.df$HG.Import )
+  
+  out.file <- 'Build_results_varImportance.csv'
+  write.csv( y, file = file.path(results.dir, out.file) )
+  out[[ 'build.results.VarImport' ]] <- y
+  
+  return( out )
+}
+
+
 #---------------------------------------------
 # Partition input points according to regions.
-# Region names and source features hard-coded in function
 # Returns: List of point dataframes, one for each region
+# Notes:   Region names and source features hard-coded in function
 Partition.Test.Data <- function( pts ){
   
   out <- list()
@@ -449,10 +622,10 @@ Partition.Test.Data <- function( pts ){
 
 
 #----------------------------
-# Load 20 m (regional) predictor variables.
-# Grabs the predictor values from the 20 m rasters. By region.
-# Requires: list of points, fewer attributes is better! 
-# Global var: bioregions 
+# Loads 20 m (regional) predictor data onto observation points.
+# Returns:  List of regions ea containing list of points with predictors attached.
+# Takes:    List of points, fewer attributes is better! 
+# Requires: Global var: bioregions 
 Add.20m.Preds <- function( obsList ){
   
   outList <- vector("list", length = length(bioregions) )
@@ -504,20 +677,10 @@ Diff.Sets <- function( x, y){
 }
 
 
-#-----------------------------
-# Load COASTWIDE predictors. 
-Add.100m.Data <- function( obsList ){
-  rasters <- Load.Predictors( predictors.coastwide )
-  preds  <- raster::extract(rasters, obsList, df = TRUE)
-  merged <- cbind( as.data.frame(obsList), preds)
-  return(merged)
-}
-
-
 #----------------------------------------------------------------------------
 # Straight up load of the independent point data sets from source shapefiles. 
-# REQUIRES: source.dir to be set.  
-# RETURNS: list of PointFeatures
+# Returns: list of PointFeatures
+# Requires: source.dir to be set.  
 Load.Point.Data <- function( shplist ) {
   
   a <- list()
@@ -555,88 +718,5 @@ Assemble.Coast.Test <- function( indat ){
   return( x )
 }
 
-
-#--------------------------------------------------------------
-# Builds a random forest model with internal partitioning of train/test data. 
-# 2020/04/13: No longer used. Intent was to re-sample partitions but dropped from the paper. 
-Rand.Ranger.Model <- function( x.data, x.formula, partition = 0.7, iterations = 1  ){
-  
-  y <- nrow( x.data )
-  out.table <- NULL
-  
-  for (i in 1:iterations ){
-    
-    #-- build the train/test partition ... 
-    idx <- sample( 1:y, round(partition * y), replace = FALSE )
-    z <- replace( rep(0, y), idx, 1)
-    xx <- cbind(x, 'partition' = z )
-    
-    x.train <- xx[ xx$partition == 1, ]
-    x.test  <- xx[ xx$partition == 0, ]
-    
-    #-- build a weighted model ... 
-    props <- x.train %>% group_by(BType4) %>% count(BType4) 
-    wts <- 1 - ( props$n / sum( props$n ))
-    x.model <- ranger( x.formula,
-                       data = x.train,
-                       num.trees = RFC$ntree, replace = RFC$repl, importance = RFC$imp, oob.error = T,
-                       case.weights = wts[ x.train$BType4 ])    #Define case.weights
-    
-    #-- Evaluate with testing partition  ...
-    out.table <- rbind( out.table, Results.Row( x.model, x.test )) 
-    print(i)
-  }
-  
-  #-- Build the model result entry.
-  if (iterations > 1)
-    z <- Summary.Row( out.table[, -1] )
-  else {
-    z <- out.table
-  }
-  #-- Build the model with all the training data.
-  props <- x.data %>% group_by(BType4) %>% count(BType4) 
-  wts <- 1 - ( props$n / sum( props$n ))
-  x.model <- ranger( x.formula,
-                     data = x.data,
-                     num.trees = RFC$ntree, replace = RFC$repl, importance = RFC$imp, oob.error = T,
-                     case.weights = wts[ x.data$BType4 ])    #Define case.weights
-  
-  return( list( 'Stats' = z, 'Model' = x.model ))
-}
-
-# # Older number-checking code for Load.Test.Data(). 
-#   # for reading into ESRI File Geodatabase
-#   subset(ogrDrivers(), grepl('GDB', name))
-#   
-#   # read the feature class specified by user
-#   GIS.data <- readOGR(dsn = gdb, layer = fc)
-#   
-#   # Keep only COLUMNS specified from the GIS POINTS DATA FRAME ... 
-#   observations <- GIS.data[, (names(GIS.data) %in% columns)] 
-#   
-#   # make X, Y columns (even if already exist to recreate spatial points dataframe later)
-#   observations$X <- observations@coords[, 1]
-#   observations$Y <- observations@coords[, 2]
-#   
-#   # number of observations before dropping invalid BType4 values
-#   observations.before <- nrow(observations)
-#  
-#   # make sure that BType4 column has only values 1:4
-#   observations <- observations[observations$BType4 %in% c(1, 2, 3, 4), ]
-#   
-#   # number of observations after dropping any records with invalid BType4 values
-#   observations.after <- nrow(observations)
-#   
-#     # write a summary to the log file ... a BIT UNORTHODOX for a function perhaps. 
-#   sink( file = file.path( output.dir, log.file ), append=TRUE)
-#   
-#   cat('\n\n\n***********************************************\n\n\n')
-#   cat(paste0('\nNumber of observations before omitting records with invalid BType4 values:\n', observations.before))
-#   cat(paste0('\n\nNumber of observations omitted due to records with invalid BType4 values:\n', observations.before - observations.after))
-#   # percent of observations dropped
-#   cat(paste0('\n\n', round(observations.after / observations.before * 100, 2), '% of observations have been kept after omitting records with invalid BType4 values'))
-#   
-#   # stop sink to log file
-#   sink()
 
 ### fin.

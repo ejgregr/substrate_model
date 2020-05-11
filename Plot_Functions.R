@@ -135,6 +135,37 @@ Plot.Build.Var.Import <- function( csv, pal, w = 800, h = 600 ) {
 }
 
 
+#-- Heat map of model performance by region and depth class. 
+Plot.Region.Class.Stats <- function( csv, res, pal, w = 800, h = 600 ) {
+  
+  # grab the Variable imporatance  table ... 
+  # csv <- 'Build_results_varImportance.csv'
+  a <- read.csv( file = file.path( results.dir, csv ))
+  a <- a[ a$Model == res, -c(1,2)]
+
+  b <- rbind( a[ a$Region =="HG", "TSS"],
+         a[ a$Region =="NCC", "TSS"],
+         a[ a$Region =="WCVI", "TSS"],
+         a[ a$Region =="QCS", "TSS"],
+         a[ a$Region =="SOG", "TSS"]
+    )
+  rownames( b ) <- bioregions
+  colnames( b ) <- c( 'ITD','0-5','5-10','10-20','20-50','50+' )
+  
+  #Reverse the rows so it plots in correct order.  
+  b <- b[seq(dim(b)[1],1),]
+
+  png( file.path( results.dir, paste0( 'heat_TSS_byClassForResgions_', res, '.png' )), width = w, height = h )
+  superheat( b, heat.pal = pal, legend = F, grid.hline = F, grid.vline = F, scale = F,
+             X.text = round(b,2), X.text.col = 'grey50', X.text.size = 8,
+             pretty.order.cols = F, pretty.order.rows = F,
+             left.label.col = 'white', left.label.text.size = 10,
+             bottom.label.col = 'White', bottom.label.text.angle = 45, 
+             bottom.label.size = 0.4, bottom.label.text.size = 10, bottom.label.text.alignment = 'right' )
+  dev.off()
+}
+
+
 #-------------- FACETED Build Statistics --------------------
 
 #-- Class prevalence of obs and pred during build, faceted by region.
@@ -217,29 +248,9 @@ Plot.Class.Stats.For.Regions <- function( dat.table, apal){
 }
 
 
-#--- TSS by Depth for Regions ---
-# Single stat; no melting or legent required.
+#--- TSS by Depth class withing Regions --- includes 20 and 100 m models.
+
 Plot.TSS.By.Depth.For.Regions <- function( dat.table, apal){
-  
-  a <- dat.table  %>%
-    # Adjust levels for correct faceting ... 
-    mutate(Region = factor(Region, levels=c("Coast", "HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
-    ggplot(aes(x = Ribbon, y = TSS)) +
-    geom_bar(stat = "identity", width = .6, position = "dodge", fill = apal ) +
-    labs( x = NULL, y = 'TSS' ) +
-    facet_grid(. ~ Region ) +
-#    scale_fill_manual(values = apal) +
-    theme_bw() +
-    theme(text = element_text(size=15)) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4))
-  
-  return(a)
-}
-
-
-#-- TSS by Class for Regions: With Coast partitioned as well.
-#   So no Coast class ...   
-Plot.TSS.By.Depth.For.Regions2 <- function( dat.table, apal){
 
     #foo <- melt( dat.table )
   
@@ -258,8 +269,6 @@ Plot.TSS.By.Depth.For.Regions2 <- function( dat.table, apal){
   
   return(a)
 }
-
-head( melt( z[ , c('Model', 'Region', 'Ribbon', 'TSS')] ))
 
 
 #-------------- FACETED IDE Statistics --------------------

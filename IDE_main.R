@@ -300,32 +300,29 @@ Plot.Build.Class.Stats( 'Build_results_byClassStats.csv', pal.10, 800, 600 )
 Plot.Build.Var.Import( 'Build_results_varImportance.csv', pal.11, 1000, 600 )
   
 
-#--- Facets of the Build results ... 
+#-- Facets of the Build results ... 
 
-#--- Prevalence plots (obs & predicted) for build (testing partition), faceted by Region
+#-- Prevalence plots (obs & predicted) for build (testing partition), faceted by Region
 a <- Plot.Obs.Pred.Prevalence.Build( build.sum$build.results.ClassPrev, pal.cole ) 
 ggsave("Class Prevalence for Obs&Pred (Build) for Regions.png", a, dpi = 300, width = 16, height = 10, path = output.dir)
 
-#--- Prevalence plots (obs vs. predicted space) faceted by Region.
-#-- Build a prevalence table for the regional predictions ... 
-# DEFERRED cuz raster scaping. 
+#-- Prevalence plots (obs vs. predicted space) faceted by Region.
+#   PENDING - waiting for raster scaping. 
 # a <- Plot.Obs.RegionPred.Prevalence( build.sum$build.results.ClassPrev, pal.cole ) 
 # ggsave("Class Prevalence for Obs vs Study area for Regions.png", a, dpi = 300, width = 16, height = 10, path = output.dir)
-
 
 #-- User and producer accuracies by class ... 
 a <- Plot.Class.Stats.For.Regions( build.sum$build.results.ByClass, pal.cole )
 ggsave( 'Class Stats (Build) for Regions.png', a, dpi = 300, width = 16, height = 10, path = output.dir)
 
-#-- Main statistics, faceted ... doesn't make a very nice bar plot ... table is better. 
+#-- Main statistics (Build_results_Integrated.csv) don't make a very nice bar plot. Report as table. 
 
 
-#====================================================================================
+#======================================================================
 #-- How does the 100m model perform regionally?
-
-#-- Feed the SpatialPointsDataFrame containing the testing partition
-# To a function to split it into regions ... 
-#-- NOTE: Obs data already partitioned, but has the 20 m data assigned ... 
+#   Requires patitioning of the Obs testing data with 100 m predictors. 
+#   Use the spatial info on the points to separate using the Region shape file.
+#   NOTE: This is not the same as the Obs partitioned and loaded w the 20 m predictors.
 
 test.regions <- Partition.Test.Data( point.data$Obs[ point.data$Obs$TestDat == 1, ] )
 length( test.regions )
@@ -346,14 +343,15 @@ x <- rbind(
 out.file <- '100m_Performance_Regionally.csv'
 write.csv( x, file = file.path(results.dir, out.file) )
 
-#-- Point of above was to see if 100m model performance was skewed in regions. Not really. 
-#   Some question re: differences in regional sample sizes compared to 20 m. Defer unless needed.
+#-- Above shows that 100m model performance is NOT very skewed by regions.
+
 
 
 #====================================================================================
-#-- Very meaningful section title ... 
+#-- How do the two model resolutions compare across depth classes within each region?
 
-# Test 100 m model by depth class for each region ... 
+# First test the 100 m model by depth class within each region. Uses the 100 m 
+# predictors partitioned above. 
 
 x <- rbind(
   cbind( 'Region' = 'HG', Coast.Fit.By.Region.By.Depth( test.regions$HG )),
@@ -362,9 +360,7 @@ x <- rbind(
   cbind( 'Region' = 'QCS', Coast.Fit.By.Region.By.Depth( test.regions$QCS )),
   cbind( 'Region' = 'SOG', Coast.Fit.By.Region.By.Depth( test.regions$SOG )) )
 
-#====================================================================================
-#-- Within each region, how do the 20 m models perform across depth classes
-#   Each model uses its own withheld Obs data.
+#-- Now do the regional models. Each model uses its own withheld Obs data ... 
 
 y <- rbind(
 #  cbind( 'Region' = 'Coast',Model.Fit.Obs.By.Depth( 'Coast', 3 )),
@@ -374,66 +370,56 @@ y <- rbind(
   cbind( 'Region' = 'QCS',  Model.Fit.Obs.By.Depth( 'QCS', 3 )),
   cbind( 'Region' = 'SOG',  Model.Fit.Obs.By.Depth( 'SOG', 3 )) )
 
-
-#-- Single stat. No legend required. 
-#   Looked at Accuracy and TNR and they contribute little.
-Plot.TSS.By.Depth.For.Regions( x[ , c('Region', 'Ribbon', 'TSS')], pal.cole[3] )
-
-
-#-- Above is fine, but to be fair really want the 100 m model evaluated for each region ... 
+# Combine the two results ... 
 
 z <- rbind( 
   cbind( Model = '100 m', x ),
   cbind( Model = '20 m', y ) )
+row.names(z) <- NULL
 
-Plot.TSS.By.Depth.For.Regions2( z[ , c('Model', 'Region', 'Ribbon', 'TSS')], pal.cole[-3] )
+str(z)
+out.file <- 'TSS_byClass_withinRegion.csv'
+write.csv( z[ , c("Model", "Region", "Ribbon", "TSS")], file = file.path(results.dir, out.file) )
+
+#-- What does a tigure look like?
+Plot.Region.Class.Stats( 'TSS_byClass_withinRegion.csv', '20 m', pal.10 )
+Plot.Region.Class.Stats( 'TSS_byClass_withinRegion.csv', '100 m', pal.10 )
+# vs ... 
+Plot.TSS.By.Depth.For.Regions( z[ , c('Model', 'Region', 'Ribbon', 'TSS')], pal.cole[-3] )
 
 
-#-- If you want to know what's driving TSS ... 
+#--------------------------------------------------------------------
+#-- Some regression to see what's driving the different metrics  ... 
+#   Have tested with/without N and Imbalance. No change. 
+#   REPLACE TSS with other metrics to create the results 
 names(z)
 cor( z[, -c(1:3)] )
 a <- lm( TSS ~ Model + Region + Ribbon + N + Imbalance, data = z )
-a <- lm( TSS ~ Model + Region + Ribbon, data = z )
 summary(a)
-
-#-- What about other metrics?
-a <- lm( Accuracy ~ Model + Region + Ribbon, data = z )
 anova( a )
-
 
 
 #====================================================================================
 #-- Create study area-wide predictions so that can compare prevalence of 
 # study area prediction to training data ... 
 
+map.prev <- list()
 #- coastwide 
-coast.stack <- Load.Predictors( predictors.coastwide )
+coast.stack <- Load.Predictors( paste0( predictor.dir, '/Coastwide' ) )
+
 # standardize var names and bathymetry sign
 names(coast.stack)[1] <- 'bathy'
 coast.stack$bathy <- coast.stack$bathy * -1
-#hist(coast.stack$bathy)
+y <- Predict.Surface( coast.stack, rf.region.Coast, raster.dir )
+
 
 #- HG
-HG.stack <- Load.Predictors( paste0( predictor.dir, 'HG' ) )
-names(HG.stack)
+HG.stack <- Load.Predictors( paste0( predictor.dir, '/HG' ) )
+str(HG.stack)
 
-
-names(rf.region.Coast)
-
-#-- BOTH fail with 'not a multple' error ... 
-foo <- raster::predict( coast.stack, rf.region.Coast )
-foo <- raster::predict( HG.stack, rf.region.HG, 'text' )
-
-
-print(rf.region.Coast$variable.importance)
-print(rf.region.Coast$predictions)
-
-treeInfo( rf.region.Coast, 1)
-
-
-# coles...
-#writeRaster(foo, file.path(single.step.dir, single.step), format = 'GTiff', datatype = 'INT2S')
-
+x <- Predict.Surface( HG.stack, rf.region.HG, raster.dir )
+x[[2]]
+map.prev$HG <- x[[2]]
 
 
 #====================================================================================
