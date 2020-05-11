@@ -93,6 +93,8 @@ Coast.Fit.By.Region.By.Depth <- function( tdat, mant = 3 ){
 
 #================================ IDS Tests ==================================
 
+# 2020/05/10: Below needs updating based on objectives.
+
 results.table <- NULL   # Re-use this name for the results here. 
 z.table <- NULL         # A mean depth table, FWIW.
 

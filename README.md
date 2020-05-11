@@ -1,6 +1,6 @@
 # substrate_model
 Repository created: 2020/02/20
-Last Update: 2020/03/31
+Last Update: 2020/05/10
 
 CONTACT
 Edward Gregr
@@ -14,6 +14,10 @@ This project uses a coast-wide data set of observations to build random forest m
 R version 3.6.2 x64
 
 UPDATES
+
+May 2020 (update 1)
+Deep cleaning of data loading and model preparation after code review with Sarah Davies (@sare-ah). This included loading data straight from the shape files provided; centralizing most of the attribute manipulation; purged unncessary functions, data structures, and code; updated some function documentation. Any older stuff that breaks as a result would likely need to be re-written anyway. 
+Model_summaries.R script dropped and the few functions absorbed in substrate.functions.R
 
 April 2020
 Update predictor influence plots to show proportion of best variable explained

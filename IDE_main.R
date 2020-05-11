@@ -14,7 +14,7 @@
 
 # NOTES:
 #   2020/04/09: sample_effect.R DEFERRED UNTIL SUBSTRATE PAPER COMPLETE
-
+#
 #*******************************************************************************
 
 rm(list=ls(all=T))  # Erase environment.
@@ -42,6 +42,7 @@ starttime <- Sys.time()
 point.data <- Load.Point.Data( source.files )
 
 names( point.data )
+str( point.data$Dive )
 
 head( point.data$Obs )
 dim( point.data$Obs )
@@ -92,6 +93,7 @@ rm( a )
 
 #-- Part 2) Load predictors onto the remaining observations (the ID sets). 
 #   Standardize attributes on the IDS, and also divide by bioregions. 
+#   BType4 turned into a factor in Add.20m.Preds() by data.frame()
 
 a <- point.data$Dive[ , c('ID', 'RMSM', 'bathy_m' )]
 names( a ) <- c('ID', 'BType4', 'bathy_m')
@@ -119,7 +121,7 @@ Diff.Sets( point.data$Cam, cam.20mIV )
 Diff.Sets( point.data$ROV, ROV.20mIV )
 
 # Obs losses likely due to circulation and tidal models missing at 20 m (not checked)
-# Extra point picked up by Dive and Cam data ... not clear what's going on. 
+# Extra point picked up by Dive and Cam data because of overlapping regional bathymetries. Not a problem for analysis. 
 
 #-- Part 3) Prepare the train/testing Obs data with 100 m predictors. 
 obs.100mIV <- point.data$Obs@data
@@ -129,7 +131,7 @@ obs.100mIV <- point.data$Obs@data
 # Drop unused attributes.
 obs.100mIV <- obs.100mIV[ , !names(obs.100mIV) %in% c('Rock', 'X', 'Y') ]
 
-#   Use 20 m data to rename 100 m predictors to match.
+# Rename 100 m predictors to match names used for 20 m predictors 
 x <- names( dive.20mIV$NCC )
 x <- x[ !x %in% c("fetch")]
 names.100m <- x[4:13]
@@ -180,7 +182,6 @@ starttime <- Sys.time()
 
 #-- Where the results live ... 
 build.results <- list()
-prev.table <- data.frame()
 
 #----- Coastwide -----
 x <- obs.100mIV[ obs.100mIV$TestDat == 0, ] #train
@@ -192,8 +193,7 @@ imp <- foo$Model$variable.importance
 # Store results  ... 
 rf.region.Coast <- foo$Model
 build.results <- c( build.results, 'Coast' = list( 'stats' = foo$Stats, 'Import' = imp) )
-prev.table <- rbind( prev.table, 
-                     cbind( 'Region' = 'Coast', foo$Stats[[ 2 ]][c(3,4),]))
+
 
 #----- Region HG  -----
 a <- obs.20mIV$HG
@@ -206,8 +206,6 @@ imp <- foo$Model$variable.importance
 # Store results  ... 
 rf.region.HG <- foo$Model
 build.results <- c( build.results, 'HG' = list( 'stats' = foo$Stats, 'Import' = imp) )
-prev.table <- rbind( prev.table, 
-                      cbind( 'Region' = 'HG', foo$Stats[[ 2 ]][c(3,4),]))
 
 
 #----- Region NCC  -----
@@ -221,8 +219,6 @@ imp <- foo$Model$variable.importance
 # Store results  ... 
 rf.region.NCC <- foo$Model
 build.results <- c( build.results, 'NCC' = list( 'stats' = foo$Stats, 'Import' = imp) )
-prev.table <- rbind( prev.table, 
-                     cbind( 'Region' = 'NCC', foo$Stats[[ 2 ]][c(3,4),]))
 
 
 #----- Region WCVI  -----
@@ -236,8 +232,6 @@ imp <- foo$Model$variable.importance
 # Store results  ... 
 rf.region.WCVI <- foo$Model
 build.results <- c( build.results, 'WCVI' = list( 'stats' = foo$Stats, 'Import' = imp) )
-prev.table <- rbind( prev.table, 
-                     cbind( 'Region' = 'WCVI', foo$Stats[[ 2 ]][c(3,4),]))
 
 
 #----- Region QCS  -----
@@ -251,8 +245,6 @@ imp <- foo$Model$variable.importance
 # Store results  ... 
 rf.region.QCS <- foo$Model
 build.results <- c( build.results, 'QCS' = list( 'stats' = foo$Stats, 'Import' = imp) )
-prev.table <- rbind( prev.table, 
-                     cbind( 'Region' = 'QCS', foo$Stats[[ 2 ]][c(3,4),]))
 
 
 #----- Region SOG  -----
@@ -266,8 +258,6 @@ imp <- foo$Model$variable.importance
 # Store results  ... 
 rf.region.SOG <- foo$Model
 build.results <- c( build.results, 'SOG' = list( 'stats' = foo$Stats, 'Import' = imp) )
-prev.table <- rbind( prev.table, 
-                     cbind( 'Region' = 'SOG', foo$Stats[[ 2 ]][c(3,4),]))
 
 #-----------------------------
 #-- Done building ranger RF models. 
@@ -286,11 +276,9 @@ save( rf.region.Coast, rf.region.HG, rf.region.NCC,
       rf.region.WCVI, rf.region.QCS, rf.region.SOG, 
       file = file.path( model.dir, paste0('rf_allModels_', x, '.RData')) )
 
-save( build.results, prev.table,
-      file = file.path( model.dir, paste0('buildResults_', x, '.RData')) )
+save( build.results, file = file.path( model.dir, paste0('buildResults_', x, '.RData')) )
 
-
-build.results$Coast.stats[1]
+build.results$Coast.stats[2]
 build.results$WCVI.stats[1]
 
 #--------------------------------------------------------------------------
@@ -358,8 +346,14 @@ x <- rbind(
 out.file <- '100m_Performance_Regionally.csv'
 write.csv( x, file = file.path(results.dir, out.file) )
 
+#-- Point of above was to see if 100m model performance was skewed in regions. Not really. 
+#   Some question re: differences in regional sample sizes compared to 20 m. Defer unless needed.
 
-# FIGURE?: Compare performance of 20 and 100 m models using regional testing partitions.
+
+#====================================================================================
+#-- Very meaningful section title ... 
+
+# Test 100 m model by depth class for each region ... 
 
 x <- rbind(
   cbind( 'Region' = 'HG', Coast.Fit.By.Region.By.Depth( test.regions$HG )),
@@ -368,10 +362,9 @@ x <- rbind(
   cbind( 'Region' = 'QCS', Coast.Fit.By.Region.By.Depth( test.regions$QCS )),
   cbind( 'Region' = 'SOG', Coast.Fit.By.Region.By.Depth( test.regions$SOG )) )
 
-
 #====================================================================================
-#-- Across depth classes, how do the 20 m models (by region) compare to the 100m?
-#   Each model uses its withheld Obs data.
+#-- Within each region, how do the 20 m models perform across depth classes
+#   Each model uses its own withheld Obs data.
 
 y <- rbind(
 #  cbind( 'Region' = 'Coast',Model.Fit.Obs.By.Depth( 'Coast', 3 )),
@@ -380,6 +373,7 @@ y <- rbind(
   cbind( 'Region' = 'WCVI', Model.Fit.Obs.By.Depth( 'WCVI', 3 )),
   cbind( 'Region' = 'QCS',  Model.Fit.Obs.By.Depth( 'QCS', 3 )),
   cbind( 'Region' = 'SOG',  Model.Fit.Obs.By.Depth( 'SOG', 3 )) )
+
 
 #-- Single stat. No legend required. 
 #   Looked at Accuracy and TNR and they contribute little.
@@ -396,8 +390,16 @@ Plot.TSS.By.Depth.For.Regions2( z[ , c('Model', 'Region', 'Ribbon', 'TSS')], pal
 
 
 #-- If you want to know what's driving TSS ... 
+names(z)
+cor( z[, -c(1:3)] )
 a <- lm( TSS ~ Model + Region + Ribbon + N + Imbalance, data = z )
+a <- lm( TSS ~ Model + Region + Ribbon, data = z )
 summary(a)
+
+#-- What about other metrics?
+a <- lm( Accuracy ~ Model + Region + Ribbon, data = z )
+anova( a )
+
 
 
 #====================================================================================
