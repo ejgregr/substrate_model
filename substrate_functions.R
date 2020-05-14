@@ -575,6 +575,7 @@ Summarize.Build <- function( build.df ){
 #---------------------------------------------
 # Partition input points according to regions.
 # Returns: List of point dataframes, one for each region
+# Requires: names.100m as a global (defined during data load)
 # Notes:   Region names and source features hard-coded in function
 Partition.Test.Data <- function( pts ){
   

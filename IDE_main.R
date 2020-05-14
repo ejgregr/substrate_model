@@ -149,7 +149,7 @@ cat( 'Data build time: ', endtime - starttime, '\n\n' )
 x <- substr( endtime, 1, 16); x <- gsub(":", "", x); x <- gsub(" ", "-", x)
 
 save( point.data, dive.20mIV, cam.20mIV, ROV.20mIV, 
-      obs.100mIV, obs.20mIV, 
+      obs.100mIV, obs.20mIV, names.100m,
       file = file.path(model.dir, paste0('loaded_data_', x, '.RData') ))
 
 
