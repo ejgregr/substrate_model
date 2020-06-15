@@ -39,26 +39,38 @@
 
 #--- Build some palettes ... Try brightening Cole's colours a bit 
 pal.cole <- c("#c6c6c6", "#c2f3f9", "#7fc9d8")
-pal <- pnw_palette( 'Winter', 10 )
-pal.pnw <- pal[c(9,6,3)]
-pal.6 <- pnw_palette( 'Shuksan', 6 )
-pal.6 <- sample( pnw_palette( 'Bay', 6 ), 6) # Want to sample these cuz color ramp not reqd
-pal.5 <- sample( pnw_palette( 'Bay', 5 ), 5)
-pal.3 <- sample( pnw_palette( 'Bay', 6 ), 3)
+pal.3.win <- pnw_palette( 'Winter', 10 )[ c(9,6,3) ]
+pal.3.bay <-pnw_palette( 'Bay', 6 )[ c(6,4,1) ]
+
+#-- Want to re-order colours cuz colour ramp not required ... 
+pal.6.shuk <- pnw_palette( 'Shuksan', 6 )
+pal.6.bay  <- pnw_palette( 'Bay', 6 )
+pal.5 <- pnw_palette( 'Bay', 5 )
+pal.4 <- pnw_palette( 'Bay', 4 )
 pal.10 <- pnw_palette( 'Bay', 10 )
 pal.11 <- rev(pnw_palette( 'Bay', 11 ))
+
+pal.map <- c( pal.10[10], pal.10[4], pal.3.win[1], pal.6.shuk[1] )
+
+
+
+show.pal <- function( aa ){
+  n <- length(aa)
+  image( 1:n, 1, as.matrix(1:n), col=aa, axes=FALSE , xlab="", ylab="" )
+}
+
+#show.pal( pal.10 )
+#show.pal( pal.map )
+
 
 
 
 # Heat maps of the build tables
-Plot.Build.Class.Stats <- function( csv, pal, w = 800, h = 600 ) {
+Plot.Build.Class.Stats <- function( df, pal, w = 800, h = 600 ) {
   
-  # grab the Class Stats data table ... 
-  a <- read.csv( file = file.path( results.dir, csv ))
-  
-    # 1) User accuracy:
-  usr <- a[ a$Stat == 'User', ] 
-  foo <- usr[, -c(1:3) ]
+  # 1) User accuracy:
+  usr <- df[ df$Stat == 'User', ] 
+  foo <- usr[, -c(1:2) ]
   row.names( foo ) <- usr$Region
   
   #The cell values to display ... 
@@ -73,8 +85,8 @@ Plot.Build.Class.Stats <- function( csv, pal, w = 800, h = 600 ) {
   dev.off()
   
   # 2) Producer accuracy  ... 
-  prd <- a[ a$Stat == 'Prod', ] 
-  foo <- prd[, -c(1:3) ]
+  prd <- df[ df$Stat == 'Prod', ] 
+  foo <- prd[, -c(1:2) ]
   row.names( foo ) <- prd$Region
   
   #The cell values to display ... 
@@ -91,32 +103,24 @@ Plot.Build.Class.Stats <- function( csv, pal, w = 800, h = 600 ) {
 
 
 #-- Heat map of predictor importance for all models ... 
-Plot.Build.Var.Import <- function( csv, pal, w = 800, h = 600 ) {
+Plot.Build.Var.Import <- function( df, pal, w = 800, h = 600 ) {
 
-  # grab the Variable imporatance  table ... 
-  # csv <- 'Build_results_varImportance.csv'
-  a <- read.csv( file = file.path( results.dir, csv ))
-  
-  # restore df (X is the row name) ... 
-  x <- data.frame(a[,-1])
-  row.names(x) <- a[,1]
-  
-  #-- create a rank table: 
+  #-- create a rank table from the source df: 
   y <- data.frame(
-    rbind( rank( -as.vector( x["Coast",] )),
-           rank( -as.vector( x["HG",]    )),
-           rank( -as.vector( x["NCC",]   )),
-           rank( -as.vector( x["WCVI",]  )),
-           rank( -as.vector( x["QCS",]   )),
-           rank( -as.vector( x["SOG",]   ))
+    rbind( rank( -as.vector( df["Coast",] )),
+           rank( -as.vector( df["HG",]    )),
+           rank( -as.vector( df["NCC",]   )),
+           rank( -as.vector( df["WCVI",]  )),
+           rank( -as.vector( df["QCS",]   )),
+           rank( -as.vector( df["SOG",]   ))
     ))
-  row.names( y ) <- a[,1]
+  row.names( y ) <- row.names(df) 
   
-  #-- Define the text for the tigure.    
-  tab <- as.matrix(x)
-  # see what proportion of max looks like
+  #-- Define the text for the tigure using proportion of maximum ... 
+  tab <- as.matrix(df)
   den <- apply( tab, 1, max)
   t2  <- round( apply( tab, 2, "/", den ), 2)
+  
   # Zero out the NA in Coastal, text and value ... 
   t2[1,11] <- 'NA'
   y[1,11] <- 0
@@ -131,7 +135,7 @@ Plot.Build.Var.Import <- function( csv, pal, w = 800, h = 600 ) {
              left.label.col = 'white', left.label.text.size = 10,
              bottom.label.col = 'White', bottom.label.text.angle = 75, 
              bottom.label.size = 0.4, bottom.label.text.size = 10, bottom.label.text.alignment = 'right' )
-    dev.off()
+  dev.off()
 }
 
 
@@ -273,45 +277,163 @@ Plot.TSS.By.Depth.For.Regions <- function( dat.table, apal){
 
 #-------------- FACETED IDE Statistics --------------------
 
-#--- Integrated Statistics by IDS faceted by Region ---
-#   Statistics are a fixed, selected list.
-Plot.Stat.By.IDS.For.Regions <- function( df, apal ){
-
-  x <- df[, c( 'Region', 'Test.Data', 'TSS', 'Accuracy', 'TNRWtd' )]
+#--- Simple facet of the sample size by region for context. ---
+Plot.Obs.By.IDS.For.Regions <- function( df, apal, sz = 20, lx=0, ly=0 ){
   
-  foo <- melt( x, id.vars = c('Region','Test.Data') )
+  foo <- melt( df, id.vars = c('Region','IDS') )
   
   a <- foo %>%
-    ggplot(aes(x = variable, y = value, fill = Test.Data)) +
+    ggplot(aes(x = variable, y = value, fill = IDS)) +
+    # dodge2 allows the bar size to be preserved for missing values, but they still get recentred if one is missing
+    # that's why resorted to padding the input data. Retained for posterity. position=dodge wld currently be enough.
+    geom_bar(stat = "identity", width = .8, position = position_dodge2(preserve = "single", padding = 0) ) +
+    labs( x = NULL, y = 'N' ) +
+    facet_grid(. ~ Region) +
+    
+    theme_bw() +
+    theme( text         = element_text(size = sz), 
+           axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.4),   # vjust needed to centre rotated names on tick
+
+           # formatting the facet strip
+           strip.text = element_text(size=rel(1.2)),
+           strip.background = element_rect(fill="lightblue", colour="black", size=1),
+  
+           # legend position          
+           legend.position = c(lx, ly), 
+#           legend.box.margin = c(50, 50, 50, 50)
+           legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
+           ) + 
+    
+    scale_fill_manual(name = 'Independent\ntest data',
+                      values = apal)
+  return( a )
+}
+
+
+#--- Integrated Statistics by IDS faceted by Region ---
+#   Statistics are a fixed list of 3.
+Plot.Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
+
+  x <- df[, c( 'Region', 'IDS', 'TSS', 'Accuracy', 'TNRWtd' )]
+  
+  foo <- melt( x, id.vars = c('Region','IDS') )
+  
+  a <- foo %>%
+    ggplot(aes(x = IDS, y = value, fill = variable)) +
     geom_bar(stat = "identity", width = .6, position = "dodge") +
     labs( x = NULL, y = 'Score' ) +
     facet_grid(. ~ Region) +
     
     theme_bw() +
-    theme(text         = element_text(size=15), 
+    theme(text         = element_text( size=sz ), 
           axis.text.x  = element_text(angle = 90, hjust = 1),
+          
+          # legend stuff          
+          legend.position = c(lx, ly),
+          legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
+          
     ) +
-    scale_fill_manual(name = 'Independent\ntest data',
+#    scale_fill_manual(name = 'Independent\ntest data',
+    scale_fill_manual(name = 'Metric',
                       values = apal)
   
   return( a )
 }
 
 
-#--- IDE evaluation Producer and User stats by Class for Regions ---
+#--- Producer and User stats by Class for Regions
 #   NEEDS UPDATED DATA TABLE ... 
-IDS.Class.Stats.For.Regions  <- function( df, apal ){
+IDS.Class.Stats.For.Regions  <- function( df, apal, sz=20, lx=0, ly=0 ){
+
+  foo <- melt( df, id.vars = c('Region','IDS', 'Stat') )
+  foo <- foo[ foo$Region == 'HG', ]
   
+  a <- foo %>%
+    ggplot(aes(x = variable, y = value, fill = Stat)) +
+    geom_bar(stat = "identity", width = .6, position = "dodge") +
+    labs( x = NULL, y = 'Score' ) +
+    facet_grid(. ~ IDS) +
+    
+    theme_bw() +
+    theme(text         = element_text( size=sz ), 
+          axis.text.x  = element_text(angle = 90, hjust = 1),
+          
+          # legend stuff          
+          legend.position = c(lx, ly),
+          legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
+          
+    ) +
+    #    scale_fill_manual(name = 'Independent\ntest data',
+    scale_fill_manual(name = 'Metric',
+                      values = apal)
+  
+  return( a )
+}
+
+
+
   a <- df %>%
     ggplot(aes(x = Test.Data, y = Accuracy, fill = Test.Data)) +
     geom_bar(stat = "identity", width = .6, position = "dodge") +
     facet_grid(. ~ Model) +
     scale_fill_manual(values = my.colours) +
     theme_bw() +
-    theme(text = element_text(size=15)) +
+    theme(text = element_text( size=sz )) +
     theme(axis.text.x = element_text(angle = 90, hjust = 1))
 }
 
+
+
+
+Plot.Pontius.By.IDS.For.Regions <- function( df, apal, sz=20 ){
+  
+  y <- melt(df, id.vars = c('Region','IDS') )
+  
+  a <- y %>%
+  ggplot(aes(x=IDS, y=value, fill=forcats::fct_rev(variable), order=desc(variable) )) +
+    geom_bar(stat="identity") +
+    labs( y = NULL, legend = 'Metric' ) +
+        facet_grid(. ~ Region) +
+    theme( text = element_text( size=sz ),
+           ) +
+    scale_fill_manual( values = apal,
+                       name = 'Metrics')
+  
+  return( a )
+}
+
+
+
+
+#--- Integrated Statistics by IDS faceted by Region V.2 ---
+#   Compare TSS (diff from random) vs. Quantity and Allocation (is this diff from accuracy)
+Plot.5Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
+  
+  x <- df[, c( 'Region', 'IDS', 'TSS', 'Accuracy', 'TNRWtd', 'Quantity', 'Exchange' )]
+  
+  foo <- melt( x, id.vars = c('Region','IDS') )
+  
+  a <- foo %>%
+    ggplot(aes(x = variable, y = value, fill = IDS)) +
+    geom_bar(stat = "identity", width = .6, position = "dodge") +
+    labs( x = NULL, y = 'Score' ) +
+    facet_grid(. ~ Region) +
+    
+    theme_bw() +
+    theme(text         = element_text( size=sz ), 
+          axis.text.x  = element_text(angle = 90, hjust = 1),
+          
+          # legend stuff          
+          legend.position = c(lx, ly),
+          legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
+          
+    ) +
+    #    scale_fill_manual(name = 'Independent\ntest data',
+    scale_fill_manual(name = 'Metric',
+                      values = apal)
+  
+  return( a )
+}
 
 
 #-- Integrated Statistics by class, for each IDS by region.

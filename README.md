@@ -15,7 +15,10 @@ R version 3.6.2 x64
 
 UPDATES
 
-May 2020 (update 1)
+June 2020 
+Getting close to finalizing figures. Integrated code from Cole to generate and plot predictions. Having trouble plotting these from the saved results. Other than that, just need to adjust/standardize colour palettes, and tweak some plots.
+
+May 2020 
 Deep cleaning of data loading and model preparation after code review with Sarah Davies (@sare-ah). This included loading data straight from the shape files provided; centralizing most of the attribute manipulation; purged unncessary functions, data structures, and code; updated some function documentation. Any older stuff that breaks as a result would likely need to be re-written anyway. 
 Model_summaries.R script dropped and the few functions absorbed in substrate.functions.R
 

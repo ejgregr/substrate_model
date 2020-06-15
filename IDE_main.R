@@ -21,7 +21,6 @@ rm(list=ls(all=T))  # Erase environment.
 
 #-- Load necessary packages and functions ... 
 source( "substrate_functions.R" )
-source( "model_summaries.R" )
 source( "Plot_Functions.R" )
 
 #-------------------------------------------------------------------------
@@ -29,7 +28,7 @@ source( "Plot_Functions.R" )
 #-- Wrapper functions used to call other functions and keep it clean here. 
 
 #-- Load existing observational data .. 
-load( file.path( model.dir, 'loaded_data_2020-05-04-1426.RData' ))
+load( file.path( model.dir, 'loaded_data_2020-06-01-1257.RData' ))
 # point.data - training data
 # dive.data, cam.data, ROV.data = Independent data sets
 ls()
@@ -161,10 +160,10 @@ save( point.data, dive.20mIV, cam.20mIV, ROV.20mIV,
 #   2. Regional, 20 m
 
 #-- Load the latest RF models (This is a BIG file) ... 
-load( file.path( model.dir, 'rf_allModels_2020-04-06-1701.RData' ))
+load( file.path( model.dir, 'rf_allModels_2020-05-21-1019.RData' ))
 
 #  Also want the build statistics and results ... 
-load( file.path( model.dir, 'buildResults_2020-04-06-1701.RData' ))
+load( file.path( model.dir, 'buildResults_2020-05-21-1019.RData' ))
 
 ls()
 
@@ -264,7 +263,7 @@ build.results <- c( build.results, 'SOG' = list( 'stats' = foo$Stats, 'Import' =
 
 endtime <- Sys.time()
 cat( 'Model build time: ', endtime - starttime, '\n\n' )
-#last run for 1 iteration was 7.4 minutes.
+#last run for 1 iteration was 2.7 minutes.
 
 #--------------------------------------------
 #-- SAVE the resulting models. Takes minutes - its a big file. 
@@ -295,9 +294,9 @@ build.sum <- Summarize.Build( build.results )
 
 #--- Heatmaps (tigures!) of build stats as png files from above csv files.
 
-Plot.Build.Class.Stats( 'Build_results_byClassStats.csv', pal.10, 800, 600 )
+Plot.Build.Class.Stats( build.sum$build.results.ByClass, pal.10, 800, 600 )
 
-Plot.Build.Var.Import( 'Build_results_varImportance.csv', pal.11, 1000, 600 )
+Plot.Build.Var.Import( build.sum$build.results.VarImport , pal.11, 1000, 600 )
   
 
 #-- Facets of the Build results ... 
@@ -403,23 +402,134 @@ anova( a )
 #-- Create study area-wide predictions so that can compare prevalence of 
 # study area prediction to training data ... 
 
+#-------------------------------------------
+#  Load the predicted rasters and prevalences  ... 
+load( file.path( model.dir, 'rasterMapObjects_2020-05-21-1019.RData' ))
+
+#-------------------------------------------
+#  Or build some new ones here. TAKES HOURS!
+
+#- Somewhere to put the data ... 
 map.prev <- list()
+
 #- coastwide 
-coast.stack <- Load.Predictors( paste0( predictor.dir, '/Coastwide' ) )
+a <- 'Coast'
+b <- rf.region.Coast
+a.stack <- Load.Predictors( paste0( predictor.dir, '/Coastwide' ) )
 
 # standardize var names and bathymetry sign
-names(coast.stack)[1] <- 'bathy'
-coast.stack$bathy <- coast.stack$bathy * -1
-y <- Predict.Surface( coast.stack, rf.region.Coast, raster.dir )
+names(a.stack)[1] <- 'bathy'
+a.stack$bathy <- a.stack$bathy * -1
 
+y <- Predict.Surface( a.stack, b, raster.dir, a, pal.map )
+map.prev <- c(map.prev, 'Coast' = y )
 
 #- HG
-HG.stack <- Load.Predictors( paste0( predictor.dir, '/HG' ) )
-str(HG.stack)
+a <- 'HG'
+b <- rf.region.HG
+a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+y <- Predict.Surface( a.stack, b, raster.dir, a, pal.map )
+map.prev <- c(map.prev, 'HG' = y )
 
-x <- Predict.Surface( HG.stack, rf.region.HG, raster.dir )
+#- NCC
+a <- 'NCC'
+b <- rf.region.NCC
+a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+y <- Predict.Surface( a.stack, b, raster.dir, a, pal.4 )
+map.prev <- c(map.prev, 'NCC' = y )
+
+#- WCVI
+a <- 'WCVI'
+b <- rf.region.NCC
+a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+y <- Predict.Surface( a.stack, b, raster.dir, a, pal.4 )
+map.prev <- c(map.prev, 'WCVI' = y )
+
+#- QCS
+a <- 'QCS'
+b <- rf.region.NCC
+a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+y <- Predict.Surface( a.stack, b, raster.dir, a, pal.4 )
+map.prev <- c(map.prev, 'QCS' = y )
+
+#- SOG
+a <- 'SOG'
+b <- rf.region.SOG
+a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+y <- Predict.Surface( a.stack, b, raster.dir, a, pal.4 )
+map.prev <- c(map.prev, 'SOG' = y )
+
+
+#-- SAVE the prevalence and the predicted objects ... 
+
+#Build a time stamp ... 
+x <- substr( endtime, 1, 16); x <- gsub(":", "", x); x <- gsub(" ", "-", x)
+
+save( map.prev,
+      file = file.path( model.dir, paste0('rasterMapObjects_', x, '.RData')) )
+
+
+#----- Plot the Study Area prevalence results ------
+
+# Pull the prevalence tables for each region and knock into shape ... 
+a <- rbind( map.prev$Coast2, map.prev$HG2, map.prev$NCC2, map.prev$WCVI2, map.prev$QCS2, map.prev$SOG2 )
+colnames( a ) <- c('Hard','Mixed','Sand','Mud')
+a <- round( a/100, 2)
+a <- cbind( Region = c('Coast','HG','NCC','WCVI','QCS','SOG'), data.frame(a) )
+a <- cbind( Stat = 'Map', a )
+
+b <- build.sum$build.results.ClassPrev[ build.sum$build.results.ClassPrev$Stat == 'Pred',]
+b <- cbind( b[ , c(1,2)],
+            round( b[ , c(-1,-2)] / rowSums(b[ , c(-1,-2)]), 2) )
+
+c <- rbind(a, b)
+
+y <- melt(c, id.vars = c('Region','Stat') )
+y <- mutate(y, Stat = factor(Stat, levels=c("Pred", "Map")))
+  
+a <- ggplot(y, aes(x=Stat, y=value, fill=variable, order=desc(variable) )) +
+  geom_bar(stat="identity") +
+  facet_grid(. ~ Region) +
+  scale_fill_manual( values = pal.map,
+                       name = 'Class') +
+  labs( y = NULL, legend = 'Prevalence' ) +
+  theme( text = element_text( size=20 ),
+  ) 
+
+cbind( c, rowSums(c[, -c(1,2)]))
+  
+x <- build.sum$build.results.ClassPrev[ build.sum$build.results.ClassPrev$Stat == 'Obs',]
+x <- cbind( x[ , c(1,2)],
+            round( x[ , c(-1,-2)] / rowSums(x[ , c(-1,-2)]), 2) )
+  
+
+#-------------------- Manual plotting of predicted tifs -----------------
+
+x <- pal.map
+
+a <- 'QCS'
+#y <- unlist( map.prev$HG1 )
+
+b <- paste0( raster.dir, '/',a, '_classified_substrate.tif')
+y <- raster::raster( b )
+str(y)
+
+png(file=b,
+    height = 7, width = 6, units = "in", res = 400)
+raster::plot(y, maxpixels=5000000, col = x, legend=FALSE,
+     xlab = "Easting", ylab = "Northing", cex.axis = .5, cex.lab = .75)
+legend(x = "bottomleft",
+       legend =  c("Rock", "Mixed", "Sand", "Mud"), fill = x, title=NA, bg = NA, box.col = NA)
+
+dev.off()
+
+
+
+# How to use the string in the list naming? ugh. i.e., 
+map.prev <- c(map.prev, eval( parse(paste0( a, '=9876' )) ))
+
 x[[2]]
-map.prev$HG <- x[[2]]
+map.prev
 
 
 #====================================================================================
@@ -433,34 +543,115 @@ map.prev$HG <- x[[2]]
 
 
 #--- 1. Test each model (n=6) vs. each of the IDS.
+# Build new every time to ensure its fresh. Doesn't take long.
+# Question(2020/05/18): Since WCVI, QCS, and SOG regions now dropped because of low sample size,
+#   is it necessary to drop them  out of the Coast evaluation here? Prob not. Just don't get used.
 
-#-- Load it ... 
-results.table <- read.csv( file.path(output.dir, 'IDS_evaluation_by_region.csv'))
-
-#-- or build it ...
 results.table <- Do.Independent.Evaluation()
 
-out.file <- 'IDS_evaluation_by_region.csv'
-write.csv( results.table, file = file.path(output.dir, out.file) )
-
 #--------------------------------------
-#-- Present the initial IDE results ... 
+#-- Present some Initial IDE results ... 
 
-x <- build.sum$build.results.Integrated
-x[1,1]
 
-#--- Integrated statistics for each IDS by Region ---
+#--- 1) Begin by looking at IDS sample sizes
+#       Do this by looking at the perClass prevalences 
+x <- results.table$PerClass
+y <- x[ x$Stat == 'PrevObs', ]
+
+# Tidy the data a bit  ... 
+y <- x[ x$Stat == 'PrevObs', ] %>% subset(select = -c(Stat))
+colnames(y) <- c( 'Region', 'IDS', 'Rock', 'Mixed', 'Sand', 'Mud')
+rownames(y) <- NULL
+
+# fill in  blank data to balance plot ... 
+y <- rbind( y, data.frame( 'Region' = 'WCVI', 'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0),
+               data.frame( 'Region' = 'QCS',  'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0),
+               data.frame( 'Region' = 'SOG',  'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0) )
+
+Plot.Obs.By.IDS.For.Regions( y, pal.3.win, sz = 25, lx=0.83, ly=0.75 )
+
+#----- Above results suggest IDS focus needs to be on Coast, HG, and NCC ... 
+#     This should apply to the data density test as well then. See below.
+
+#--- 2) Look at class statistics by IDS ... 
+#       User/producer accuracies by regions by IDS. 
+
+#--- Assemble the data ... 
+x <- results.table$PerClass
+y <- x[ x$Stat %in% c( 'User', 'Prod'), ]
+y <- y[ y$Region %in% c( 'Coast', 'HG', 'NCC'), ]
+
+# Tidy the data a bit  ... 
+colnames(y) <- c( 'Region', 'IDS', 'Stat', 'Rock', 'Mixed', 'Sand', 'Mud')
+rownames(y) <- NULL
+
+### Challenge here is there is an extra dimension. Could stack a bar within a facet but ... :\
+### Plot for each region? For each IDS? Not clear. :(
+
+a <- IDS.Class.Stats.For.Regions( y, pal.3.win, sz = 25, lx=0.83, ly=0.75 )
+ggsave( 'Class Stats (IDE) for Regions.png', a, dpi = 300, width = 16, height = 10, path = output.dir)
+
+
+
+#---------------------
+# 3) Look at Integrated statistics for each IDS by Region.
 # Use a predetermined collection of stats (see function)
-a <- Plot.Stat.By.IDS.For.Regions( results.table, pal.3 )
+
+# Again, start with a little data prep ... 
+
+y <- results.table$Integrated
+z <- y[ y$Region %in% c('Coast', 'HG', 'NCC'), ]
+rownames(z) <- NULL
+z
+  
+# This function can be used to generate various views of the data. 
+# 2020/05/25 DH preferred IDS as the grouping variable ... 
+Plot.Stats.By.IDS.For.Regions( z, pal.3.win, sz = 25, lx=0.76, ly=0.87 )
 ggsave( paste0( 'Integrated Stats by IDE for Regions.png'), a, dpi = 300, width = 16, height = 10, path = output.dir)
 
 
-#-- UNDER CONSTRUCTION - need some by-class results ... 
+# What about TSS vs. Quantity and Allocation?
+# Remember: Accuracy = 1 – (Quantity + Exchange + Shift).
+z$Allocation <- z$Shift + z$Exchange
+z <- z[, c( 'Region', 'IDS', 'Accuracy', 'Quantity', 'Exchange','Shift' )]
+head(z)
 
-#-- User and producer accuracies by class ---
-#####   NEEDS A NEW DATA STRUCTURE, SO requires different/updated IDs SUMMARY CODE ####
-a <- IDS.Class.Stats.For.Regions( results.table, pal )
-ggsave( 'Class Stats (IDE) for Regions.png', a, dpi = 300, width = 16, height = 10, path = output.dir)
+Plot.Pontius.By.IDS.For.Regions( z, rev(pal.4), sz = 25 )
+
+
+#---------- Test data density ---------
+
+#-- Load shapefile containing high/low densities ... 
+pgons <- readOGR( file.path(source.dir, "/regions/hi_density_area.shp") )
+
+x <- point.data$Obs[ point.data$Obs$TestDat == 1, ]
+
+projection(pgons)
+projection(x)
+
+
+y <- x[ pgons[ pgons$name == "High_Density_Area",], ]@data
+
+y <- x[ , !colnames(x) %in% drop.list ]
+names(y)[3:12] <- names.100m 
+out <- c( out, list( 'HG' = y) )
+
+
+
+#-- Take IDS for HG and NCC regions only and separate by complex and not. 
+#-- But I think we talked about using the OBS data here  ... makes more sense. 
+#-- Test. 
+
+
+
+
+
+
+#--------------- UNDER CONSTRUCTION ---------------------
+
+#-- Can compare the IDs results to some of the Obs testing results if desired ...Options = 
+#     1) compare model ranks across test data; 
+#     2) test how sample size affects results? What about empty classes?
 
 
 

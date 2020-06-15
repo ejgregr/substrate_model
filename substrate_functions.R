@@ -19,11 +19,10 @@
 #-- Load packages using neat loading code from Cole ... 
 
 # check for any required packages that aren't installed and install them
-required.packages <- c("ggplot2", "reshape2", "tidyr","dplyr", 
-                       "diffeR", "vegan", "randomForest", "ranger", "raster", "rgdal", "stringr",
-                       "measures", "e1071", "caret", "PresenceAbsence", 
-                       "superheat", "PNWColors")
-# Currently not using:  "spatialEco", "xlsx", "robustbase", "biomod2", "sp", "magrittr",
+required.packages <- c("superheat", "ggplot2", "reshape2", "tidyr","dplyr", 
+                       "diffeR", "vegan", "ranger", "rgdal", "raster", "stringr",
+                       "measures", "caret", "PresenceAbsence" )
+# Currently not using:  "e1071", "randomForest", "spatialEco", "xlsx", "robustbase", "biomod2", "sp", "magrittr",
 #                       "tinytex", "rmarkdown", "binr"
 
 uninstalled.packages <- required.packages[!(required.packages %in% installed.packages()[, "Package"])]
@@ -34,6 +33,11 @@ if(length(uninstalled.packages)) install.packages(uninstalled.packages)
 # require all necessary packages
 lapply(required.packages, require, character.only = TRUE)
 
+#lapply(required.packages, library, character.only = TRUE)
+
+#-- devtools required above to properly install colours ... the first time?
+#devtools::install_github("jakelawlor/PNWColors") 
+library(PNWColors)
 
 #----------------------------------------------------------------------------
 #-- Data sources and other constants ...  
@@ -127,6 +131,7 @@ Results.Row <- function( testModel, testData, mant = 3 ){
     "Imbalance" = round( prev, mant ), 
     "OOB"       = round( testModel$prediction.error, mant ),
     "TSS"       = TSS.Calc( y$table ),
+#    "Kappa"     = round( as.numeric( y$overall[ 'Kappa' ]), mant ),
     "Accuracy"  = round( as.numeric( y$overall[ 'Accuracy' ]), mant ),
     'TNRWtd'    = round( sum( z$Specificity * z$Prevalence ), mant ),
     round( diffr.Stats( y$table )/nrow(testData), mant ) #returns some pre-named, Pontius stuff.
@@ -139,6 +144,18 @@ Results.Row <- function( testModel, testData, mant = 3 ){
   
   return( list( 'Integrated' = out1, 'PerClass' = t(out2) ))
 }
+
+
+# w <- obs.20mIV$HG[ obs.20mIV$HG$TestDat ==1, ]
+# Results.Row( rf.region.HG, w )
+# 
+# x <- predict( rf.region.HG, w )
+# y <- caret::confusionMatrix( x$predictions, w$BType4 )
+# y$byClass
+# y$overall
+# 
+# z <- diffr.Stats( y$table )
+# names(z)
 
 
 #----------------------------------------------------------------
@@ -213,10 +230,11 @@ diffr.Stats <- function( cTable ){
 #  Other stats available. Especially by class. 
 #  pop <- matrix( c( 1,2,3,4, colSums( x)), 4, 2)
 #  y2  <- categoryComponentsPlot( ctmatrix = x, population = pop )
-  
+
   out <- y[ y$Category == 'Overall', -1 ]
   return( out[ c('Quantity', 'Exchange', 'Shift') ] ) #return desired stats and order
 }
+
 
 # #-- Testing diffeR stats ... 
 # z <- caret::confusionMatrix( rf.region.HG$predictions, train.data.20m$HG$BType4)
@@ -253,13 +271,13 @@ Prev.Balance <- function( plist ){
 #----------------------------------
 # Function to predict a raster surface, write to disk, and export a png of the surface
 # env.predictors: raster stack of environmental predictors, ranger.model: model object, output.directory: path to output
-Predict.Surface <- function(env.predictors, ranger.model, output.directory){
+Predict.Surface <- function(env.predictors, ranger.model, output.directory, nm, pngpal){
   
   # create output directory - this creates it in the working directory. If it exists, do not show warning
-  dir.create(output.directory, showWarnings = FALSE)
+#  dir.create(output.directory, showWarnings = FALSE)
   
   # save ranger model to disk as RData file
-  save(ranger.model, file = file.path(output.directory, 'ranger_model.RData'))
+#  save(ranger.model, file = file.path(output.directory, 'ranger_model.RData'))
   
   # predict substrate using raster stack and model file
   raster.obj <- raster::predict(object   = env.predictors,  
@@ -268,29 +286,35 @@ Predict.Surface <- function(env.predictors, ranger.model, output.directory){
                                 fun = function(model, ...) predict(model, ...)$predictions)
   
   # write raster file to disk
-  writeRaster(raster.obj, file.path(output.directory, 'classified_substrate.tif'), format = 'GTiff', datatype = 'INT2S')
+  writeRaster(raster.obj, file.path(output.directory, 
+                                    paste0(nm, '_classified_substrate.tif')), 
+                                    format = 'GTiff', datatype = 'INT2S', overwrite = TRUE)
   
   # generate table of proportions for each class in predicted raster
   raster.prop <- round(100 * prop.table(table(na.omit(as.data.frame(getValues(raster.obj))))), 2)
   
   # colour palette for map
-  pal <- c("#999999", "#33bbff", "#ffff99", "#ffb84d")
+  #pal <- c("#999999", "#33bbff", "#ffff99", "#ffb84d")
   
   # labels for legend
   labels <- c("Rock", "Mixed", "Sand", "Mud")
   
   # Map (up to 5,000,000 pixels)
-  png(file=file.path(output.directory, "substrate_raster.png"),
+  png(file=file.path(output.directory, paste0(nm, "substrate_raster.png")) ,
       height = 7, width = 6, units = "in", res = 400)
-  plot(raster.obj, maxpixels=5000000, col=pal, legend=FALSE,
+  plot(raster.obj, maxpixels=5000000, col=pngpal, legend=FALSE,
        xlab = "Easting", ylab = "Northing", cex.axis = .5, cex.lab = .75)
   legend(x = "bottomleft",
-         legend = labels, fill = pal, title=NA, bg = NA, box.col = NA)
+         legend = labels, fill = pngpal, title=NA, bg = NA, box.col = NA)
   
   dev.off()
   
   return(list(raster.obj, raster.prop))
+  
 }
+
+
+
 
 
 #---------------------------------------------------------------------------------------------
@@ -404,33 +428,47 @@ Test.Prevalence <- function( obs, N, part, theForm ){
 #           all RF models built.
 Do.Independent.Evaluation <- function( results=NULL ){
   #-- Part 1: Coast model vs. each ID set. Regional IDE sets need to be assembled.  
+  results.int <- NULL
+  results.class <- NULL
   
   # Dive Data - pull the regional data together  ... 
   x.test <- Assemble.Coast.Test( dive.20mIV )
   
   #-- Build the table piece ... 
-  compare.what <- data.frame( 'Region' = 'Coastwide', 'Test Data' = 'Dive' )
+  compare.what <- data.frame( 'Region' = 'Coast', 'IDS' = 'Dive' )
   w <- Results.Row( rf.region.Coast, x.test )
   x <- cbind( compare.what, w$Integrated )
-  results <- rbind( results, x ) 
+  results.int <- rbind( results.int, x ) 
+
+  y <- cbind( compare.what, 'Stat' = row.names( w$PerClass ), w$PerClass )
+  results.class <- rbind( results.class, y )
+  print( 'Dive test done ...')
   
   # Repeat for the Cam IDS  ... 
   x.test <- Assemble.Coast.Test( cam.20mIV )
   
   #-- Build the table piece ... 
-  compare.what <- data.frame( 'Region' = 'Coastwide', 'Test Data' = 'Cam' )
+  compare.what <- data.frame( 'Region' = 'Coast', 'IDS' = 'Cam' )
   w <- Results.Row( rf.region.Coast, x.test )
   x <- cbind( compare.what, w$Integrated )
-  results <- rbind( results, x ) 
+  results.int <- rbind( results.int, x ) 
   
-  # Repeat for the ROV IDS  ... 
+  y <- cbind( compare.what, 'Stat' = row.names( w$PerClass ), w$PerClass )
+  results.class <- rbind( results.class, y )
+  print( 'Cam test done ...')
+  
+    # Repeat for the ROV IDS  ... 
   x.test <- Assemble.Coast.Test( ROV.20mIV )
   
   #-- Build the table piece ... 
-  compare.what <- data.frame( 'Region' = 'Coastwide', 'Test Data' = 'ROV' )
+  compare.what <- data.frame( 'Region' = 'Coast', 'IDS' = 'ROV' )
   w <- Results.Row( rf.region.Coast, x.test )
   x <- cbind( compare.what, w$Integrated )
-  results <- rbind( results, x ) 
+  results.int <- rbind( results.int, x ) 
+  
+  y <- cbind( compare.what, 'Stat' = row.names( w$PerClass ), w$PerClass )
+  results.class <- rbind( results.class, y )
+  print( 'ROV test done ...')
   
   #------------------------------------------------------------
   #-- Part 2: Regional runs, each with all 3 ID sets.
@@ -454,7 +492,7 @@ Do.Independent.Evaluation <- function( results=NULL ){
         # good to go ... except need to upper case first letter of IDS ...  
         jj <- sapply(j, function(x) 
           paste(toupper(substr(x,1,1)),substr(x,2,nchar(x)),sep="") )  # toupper for first character
-        compare.what <- data.frame( 'Region' = i, 'Test Data' = jj )
+        compare.what <- data.frame( 'Region' = i, 'IDS' = jj )
         
         # grab the IDS data ... 
         x <- eval(parse( text=paste0( j, ".20mIV" ) ))
@@ -462,12 +500,16 @@ Do.Independent.Evaluation <- function( results=NULL ){
         # make the results ... 
         w <- Results.Row( m.model, x.test )
         x <- cbind( compare.what, w$Integrated )
-        results <- rbind( results, x ) 
+        results.int <- rbind( results.int, x ) 
+        
+        y <- cbind( compare.what, 'Stat' = row.names( w$PerClass ), w$PerClass )
+        results.class <- rbind( results.class, y )
+        
       }
     }
   }
   rownames( results ) <- NULL
-  return( results )
+  return( list( 'Integrated' = results.int, 'PerClass' = results.class ))
 }
 
 
@@ -640,7 +682,7 @@ Add.20m.Preds <- function( obsList ){
     merged <- cbind( as.data.frame(obsList), preds)
     
     merged <- merged[, !names(merged) %in% c('coords.x1', 'coords.x2' ) ]
-    
+    merged$BType4 <- as.factor( merged$BType4 )  #Ensure this is stored as a factor ... 
     outList[[ i ]] <- drop_na( merged )
     
     cat( i, ' loaded ...\n')
