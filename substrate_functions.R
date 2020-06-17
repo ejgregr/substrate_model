@@ -314,9 +314,6 @@ Predict.Surface <- function(env.predictors, ranger.model, output.directory, nm, 
 }
 
 
-
-
-
 #---------------------------------------------------------------------------------------------
 # For the provided sample: 1) partition the data; 2) build train model, 3) build a full model
 # build a RF model with partitioned subset data
@@ -659,6 +656,43 @@ Partition.Test.Data <- function( pts ){
   y <- x[ , !colnames(x) %in% drop.list ]
   names(y)[3:12] <- names.100m 
   out <- c( out, list( 'SOG' = y) )
+  
+  return( out )
+}
+
+
+#---------------------------------------------
+# Partition input points into low and high density piles
+# Returns: List of 2 dataframes, one for each of low/hi density regions
+# Requires: names.100m as a global (defined during data load)
+#           Obs points, and the density shape file. 
+Partition.By.Density <- function( pts ){
+  
+  out <- list()
+  
+  #-- Load the regions shape file containing the High Density pgons ... 
+  pgons <- readOGR( file.path(source.dir, "/regions/hi_density_area.shp") )
+  
+  drop.list <- c('BT_Sorc','Rock','X','Y','ID')
+  
+  
+  # Split the points into those that fall in the High density area ... 
+  dens.pts <- x[ pgons[ pgons$name == "High_Density_Area",], ]@data
+  # and those that don't ... (confirmed IDs are unique)
+  sparse.pts <- x[ !(x$ID %in% dens.pts$ID), ]@data
+  
+  # Now fix the attribute lists 
+  dens.pts$BType4   <- as.factor( dens.pts$BType4 )
+  sparse.pts$BType4 <- as.factor( sparse.pts$BType4 )
+  
+  x <- dens.pts[ , !colnames(dens.pts) %in% drop.list ]
+  names(x)[3:12] <- names.100m 
+  out <- c( out, list( 'Dense' = x) )
+  
+  x <- sparse.pts[ , !colnames(sparse.pts) %in% drop.list ]
+  names(x)[3:12] <- names.100m 
+  out <- c( out, list( 'Sparse' = x) )
+  
   
   return( out )
 }

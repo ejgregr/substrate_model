@@ -1,6 +1,6 @@
 # substrate_model
 Repository created: 2020/02/20
-Last Update: 2020/05/10
+Last Update: 2020/06/15
 
 CONTACT
 Edward Gregr

@@ -21,15 +21,13 @@
 z.breaks <- c( -1000, 0, 5, 10, 20, 50, 5000)
 z.ribs <- c('ITD', '0-5', '5-10', '10-20', '20-50', '50+')
 
-
 #======================= Testing with withheld Obs =========================
 #-- Compare 100 m model and 20 m regional models, across depth zones
-#   to see if there is a depth- resolution linkage. uses withheld obs data. 
+#   to see if there is a depth-resolution linkage.
 
-#-------------------------------------------------
-# Returns a row of results testing the model againsts the Obs test data. 
+#-----------------------------------
+# Returns a row of test results ... 
 # GLOBAL vars: z.breaks, z.ribs, rf models, obs.20mIV
-
 Model.Fit.Obs.By.Depth <- function( regName, mant = 3 ){
 
   rf <- eval(parse( text=paste0( "rf.region.", regName ) ))
@@ -59,10 +57,8 @@ Model.Fit.Obs.By.Depth <- function( regName, mant = 3 ){
   return (results)
 }
 
-# Tidy ... 
-#rm(x.test, x.sub, a, foo, w, x, y, z, z.row, j, k)
-
-#-- For the 100 m model, how does it perform (against withheld obs) by Depth within Depth?
+#-----------------------------------
+#-- For the 100 m model, how does it perform (using withheld obs) by Depth within Region?
 # Model is fixed. 
 # INPUT: Obs test data, partitioned by region ...  
 Coast.Fit.By.Region.By.Depth <- function( tdat, mant = 3 ){
@@ -89,6 +85,64 @@ Coast.Fit.By.Region.By.Depth <- function( tdat, mant = 3 ){
 }
 
 
+
+#----- Duplicate pair of functions to extend depth analysis to a couple more depth classes.
+# Define 2nd set of breaks to test depth effect more thoroughly ... 
+z.breaks2 <- c( -1000, 0, 5, 10, 20, 50, 100, 200, 5000)
+z.ribs2 <- c('ITD', '0-5', '5-10', '10-20', '20-50', '50-100', '100-200', '200+')
+
+
+Model.Fit.Obs.By.Depth2 <- function( regName, mant = 3 ){
+  
+  rf <- eval(parse( text=paste0( "rf.region.", regName ) ))
+  
+  if (regName == 'Coast') {
+    tdat <- obs.100mIV
+  } else
+    tdat <- eval(parse( text=paste0( 'obs.20mIV$', regName ) ))
+  
+  tdat <- tdat[ tdat$TestDat == 1, ]
+  tdat$zClass <- as.factor( findInterval( tdat$bathy, z.breaks2) )
+  
+  results <- NULL  
+  # loop thru each level, calculating performance of data subset 
+  for (k in levels( tdat$zClass ) ){
+    x.sub <- tdat[ tdat$zClass == k, ]
+    
+    # build the row label ... 
+    compare.what <- data.frame( 'Ribbon' = z.ribs2[ as.numeric(k) ], 
+                                'meanZ' = round( mean( x.sub$bathy ), mant ) )
+    
+    # make the results ... 
+    w <- Results.Row( rf, x.sub )
+    x <- cbind( compare.what, w$Integrated )
+    results <- rbind( results, x ) 
+  }
+  return (results)
+}
+
+Coast.Fit.By.Region.By.Depth2 <- function( tdat, mant = 3 ){
+  
+  rf <- rf.region.Coast
+  
+  tdat$zClass <- as.factor( findInterval( tdat$bathy, z.breaks2) )
+  
+  results <- NULL  
+  # loop thru each level, calculating performance of data subset 
+  for (k in levels( tdat$zClass ) ){
+    x.sub <- tdat[ tdat$zClass == k, ]
+    
+    # build the row label ... 
+    compare.what <- data.frame( 'Ribbon' = z.ribs2[ as.numeric(k) ], 
+                                'meanZ' = round( mean( x.sub$bathy ), mant ) )
+    
+    # make the results ... 
+    w <- Results.Row( rf, x.sub )
+    x <- cbind( compare.what, w$Integrated )
+    results <- rbind( results, x ) 
+  }
+  return (results)
+}
 
 
 #================================ IDS Tests ==================================

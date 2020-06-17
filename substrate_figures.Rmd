@@ -1,0 +1,395 @@
+---
+title: "Substrate Figures"
+author: "Edward Gregr"
+date: "6/15/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width=12, fig.height=8) 
+
+```
+
+# Tables and Figures 
+
+Eds first R Markdown document. Going big sending it to an MS Word document.
+
+First step is to get it to run generating plots from existing data objects in the environment.  
+Second step would be to use it to optionally re-build the objects.
+
+Challenge: Get Knitr to be able to see the existing objects. Reproducability means code chunks should contain all the work. Not super practical to begin with. Start with running knitr in the gobal environment: Use rmarkdown::render("substrate_figures.Rmd") from console.
+
+Middle road would be to use source() and readLines() within the code chunk. Met with limited success ... 
+
+What does putting a dataframe name in the code chunk options do?  
+Is it best to put captions in the code block, or in the text sections?   
+HOw to set plot dimensions for ggplot()? By default they come up square.   
+
+
+Details on using R Markdown  <http://rmarkdown.rstudio.com>  
+On defining a style to serve as a pagebreak  <https://datascienceplus.com/r-markdown-how-to-insert-page-breaks-in-a-ms-word-document/>  
+Guidance for landscape tables/pages <https://code-examples.net/en/q/18a6fd6>  
+Messing with figure sizing <https://sebastiansauer.github.io/figure_sizing_knitr/>  
+Some info on KNITR and environment <https://stackoverflow.com/questions/34029611/how-to-use-objects-from-global-environment-in-rstudio-markdown>
+
+From the definitive guide <https://bookdown.org/yihui/rmarkdown/>
+
+re figure sizing:
+```{r, fig.width=10, fig.height=2, fig.fullwidth=TRUE}
+par(mar = c(4, 4, .1, .2)); plot(sunspots)
+```
+
+========================================
+## Data processing steps
+
+All data structures are saved as .RData files. 
+
+### IDE_Main.R
+
+**PART 1: Load, prep, and inspect all the data.**   
+	Includes Obs data w 100 m predictors; All IDS data; Regional 20 m predictors
+	
+Data structures: *point.data, dive.20mIV, cam.20mIV, ROV.20mIV, obs.100mIV, obs.20mIV*  
+Standardized predictor names: *names.100m*  
+
+**PART 2: Build and evaluate the required RF models.**  
+	Creates RF model structures, and summarizes Build statistics
+
+Data structures: rf.region.Coast, rf.region.HG, rf.region.NCC, rf.region.WCVI,  
+	rf.region.QCS, rf.region.SOG  
+Build summaries: *build.results*   
+
+CSV Files: Build_results_Integrated.csv - build.results.Integrated
+	   Build_results_byClassStats.csv - build.results.ByClass
+	   Build_results_testPrevalence.csv - build.results.ClassPrev
+	   Build_results_varImportance.csv - build.results.VarImport
+
+
+**Part 3: Produce and save heatmaps (4) of build results**  
+
+
+**Part 4: Model resolution tests**  
+
+
+**Part 4b: Model resolution across depths**  
+Take the Coastwide model, test its performance by depth, in each region.  
+Take the regional models, test their performance by depth, in each region.  
+(Coastwide is 100m, regional are 20 m. Points are the same)
+
+CSV Files: Stats_byRibbon_byRegion_byModel.csv
+	   TSS_byRibbon_byRegion_byModel.csv (for heatmaps)
+
+
+**Part 5: Independent Data Set evaluation**  
+
+
+**Part 6: Test data density effect**  
+Do the models predict better in areas of high source data density? 
+
+
+**Part 7: Making the study area substrate predictions**  
+
+
+====================================
+
+```{r, SetUp, echo=FALSE }
+#```{r code = readLines('substrate_functions.R')}
+
+# Load saved RF models ... 
+#load( file.path( model.dir, 'rf_allModels_2020-05-21-1019.RData' ))
+
+# Load build statistics and results ... 
+#load( file.path( model.dir, 'buildResults_2020-05-21-1019.RData' ))
+
+```
+
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+
+## Tables 
+
+Main results table describes build.   
+
+Probably will want one for IDS as well?  
+
+Also include ANOVA table. A bit tough to build in R?   
+
+Need to figure out how to insert a Word landscape section. Ugh. 
+
+```{r Build_Tables, echo=FALSE}
+library( knitr )
+
+T.cap <- "Table 1: Summary of model results by region." 
+kable( build.sum$build.results.Integrated, digits=2, caption = T.cap )
+
+# Shrink font ... 
+# Will it be easier to format Caption OUTSIDE w pandoc or INSIDE w kable?
+# digits will need to be a vector if you want to use it (cuz N)
+
+foo <- read.csv( 'C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/100m_Performance_Regionally.csv' )
+
+T.cap <- "Table 2: Summary of 100 m model performance by region, using Obs testing at 20 m, by region." 
+kable( foo, digits=2, caption = T.cap )
+
+# Build ANOVA from depth.results argument ... 
+
+# # Copied from IDE_Main.R ... 
+# names(depth.results)
+# cor( depth.results[, -c(1:3)] )
+# 
+# # replace TSS w other metrics to create results. 
+# a <- lm( TSS ~ Model + Region + Ribbon + N + Imbalance, data = depth.results )
+# summary(a)
+# anova( a )
+
+
+```
+
+Table 2 shows that 100 m model performance is not skewed towards any particular region. That is, it doesn't fit the witheld data any better in one region over another. 
+
+
+
+
+## Figures - Part 1: Summary of model building
+
+```{r Build_Heatmaps, echo=FALSE}
+
+#--- Heatmaps (tigures!) of build stats as png files from above csv files.
+library( superheat)
+
+# Library only makes pngs. Can call here, then use pandoc to load the png.
+#   Plot.Build.Class.Stats( build.sum$build.results.ByClass, pal.10, 800, 600 )
+#   Plot.Build.Var.Import( build.sum$build.results.VarImport , pal.11, 1000, 600 )
+
+# Producer accuracy to be re-made with NO x-axis labels ... 
+# Then can lose the height= ... which doesn't seem to work? Neither does the fullwidth option :\
+
+```
+
+![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/heat_ProducerAccuracy_Build.png){ fig.width=80% }
+![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/heat_UserAccuracy_Build.png)
+
+**Figure 1a/b: Heatmaps of Class-statistics (User/Producer) across models**  
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/heat_VariableImportance_Build.png){ fig.fullwidth=TRUE }
+
+**Figure 2: Heatmap of Variable importance across models**  
+
+Importance is measured as the proportion of each predictor's contribution to each individual model, relative to the predticor with the maximum predictive power. (p/max(p)).  
+
+NA indicates that Fetch was not used as a predictor for the Coast model.  
+
+Also note that while there is a rank order, some of the predictors are very similar, e.g., NC has 4 predictors with virtually equal model contribution scores (0.5 and 0.51).  
+
+
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+
+```{r echo=FALSE, fig.width=10, fig.height=6, fig.fullwidth=TRUE}
+
+#-- Prevalence plots (obs & predicted) for build (testing partition), faceted by Region
+Plot.Obs.Pred.Prevalence.Build( build.sum$build.results.ClassPrev, pal.cole ) 
+
+```
+
+**Figure 3: Comparison of observed and predicted prevalance for the Obs testing partition, by class, across regions.**  
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+
+```{r echo=FALSE, fig.width=10, fig.height=6}
+#-- User and producer accuracies by class ... 
+Plot.Class.Stats.For.Regions( build.sum$build.results.ByClass, pal.cole )
+
+```
+
+**Figure 4: User and Producer accuracies for the Obs testing partition, by class, across regions.**
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+
+```{r echo=FALSE, fig.width=10, fig.height=6, out.width='100%'}
+#-- depth_results needs to be re-calculated by main script. Not ideal. 
+
+z <- depth.results2
+z$TSS <- (z$TSS+1)/2
+
+Plot.TSS.By.Depth.For.Regions( z[ , c('Model', 'Region', 'Ribbon', 'TSS')], pal.cole[-3] )
+```
+
+**Figure 5: Performance of 20 and 100 m models against the Obs testing partition, across depth ranges, by region.**  
+
+These data were also shown as 2 tigger plots (one for ea resolution) and it didn't look good.   
+
+TSS scaled as (TSS+1)/2. Really compresses the differences. i.e., unscaled values range from ~0.42 to ~0.75. 
+
+
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+## Figures - Part 2: Independent Data Evaluation
+
+```{r IDS_One, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
+# Depends on IDE.results created in main script. 
+#--- 1) Begin by looking at IDS sample sizes using perClass prevalences 
+x <- IDE.results$PerClass
+y <- x[ x$Stat == 'PrevObs', ]
+
+# Tidy the data a bit  ... 
+y <- x[ x$Stat == 'PrevObs', ] %>% subset(select = -c(Stat))
+colnames(y) <- c( 'Region', 'IDS', 'Rock', 'Mixed', 'Sand', 'Mud')
+rownames(y) <- NULL
+
+# fill in  blank data to balance plot ... 
+y <- rbind( y, data.frame( 'Region' = 'WCVI', 'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0),
+               data.frame( 'Region' = 'QCS',  'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0),
+               data.frame( 'Region' = 'SOG',  'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0) )
+
+Plot.Obs.By.IDS.For.Regions( y, pal.3.win, sz = 25, lx=0.83, ly=0.75 )
+
+```
+
+**Figure 6: Prevalence of Independent data sets by depth class, across regions. **  
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+
+```{r IDS_Two, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
+
+# 3) Look at Integrated statistics for each IDS by Region.
+# Use a predetermined collection of stats (see function)
+
+# Again, start with a little data prep ... 
+
+y <- IDE.results$Integrated
+z <- y[ y$Region %in% c('Coast', 'HG', 'NCC'), ]
+rownames(z) <- NULL
+
+z$TSS <- (z$TSS+1)/2
+# This function can be used to generate various views of the data. 
+# 2020/05/25 DH preferred IDS as the grouping variable ... 
+a <- Plot.Stats.By.IDS.For.Regions( z, pal.3.win, sz = 25, lx=0.76, ly=0.87 )
+a
+
+# Saving hi res image for manuscript ... 
+#ggsave( paste0( 'Figure 8 - Integrated Stats by IDE for Regions.png'), a, dpi = 300, width = 16, height = 10, path = output.dir)
+```
+
+**Figure 7: Integrated statistics for Independent data sets by depth class.**  
+
+The TSS for this figure, nominally on the scale [-1, +1], is re-scaled to for better comparison with the other statistics which range from [0, 1]. Reported value is (TSS+1)/2 to scale onto [0, 1].
+
+
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+```{r IDS_Three, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
+
+z <- IDE.results$Integrated
+z$Allocation <- z$Shift + z$Exchange
+z <- z[, c( 'Region', 'IDS', 'Accuracy', 'Quantity', 'Exchange','Shift' )]
+
+Plot.Pontius.By.IDS.For.Regions( z, rev(pal.4), sz = 25 )
+```
+
+**Figure 8: Pontius statistics for Independent data sets by depth class.**  
+
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+```{r Prevalences, echo=FALSE, fig.fullwidth=TRUE }
+#-- Plots the Study Area prevalence results. Requires the map.prev structure. 
+Plot.Pred.Map.Prevalence( map.prev, build.sum)
+
+
+```
+
+**Figure 9: Comparison of prevalence between model build(?) and study area predictions.**    
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+

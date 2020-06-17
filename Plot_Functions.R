@@ -211,7 +211,7 @@ Plot.Obs.RegionPred.Prevalence <- function( dat.table, apal ){
   y <- cbind( dat.table[,c(1,2)], y)
   names(y)[1] <- 'Source'
   
-  foo <- melt( y, id.var = c('Region', 'Source'))
+  foo <- melt( y, id.var = c('Stat', 'Region'))
   
   a <- foo %>%
     # Adjust levels for correct faceting ... 
@@ -233,7 +233,7 @@ Plot.Obs.RegionPred.Prevalence <- function( dat.table, apal ){
 #--- Producer and User stats (Build) by Class for Regions ---
 Plot.Class.Stats.For.Regions <- function( dat.table, apal){
   
-  foo <- melt( dat.table )
+  foo <- melt( dat.table, id.var = c('Region', 'Stat') )
   
   a <- foo  %>%
     # Adjust levels for correct faceting ... 
@@ -253,7 +253,6 @@ Plot.Class.Stats.For.Regions <- function( dat.table, apal){
 
 
 #--- TSS by Depth class withing Regions --- includes 20 and 100 m models.
-
 Plot.TSS.By.Depth.For.Regions <- function( dat.table, apal){
 
     #foo <- melt( dat.table )
@@ -311,9 +310,10 @@ Plot.Obs.By.IDS.For.Regions <- function( df, apal, sz = 20, lx=0, ly=0 ){
 
 
 #--- Integrated Statistics by IDS faceted by Region ---
-#   Statistics are a fixed list of 3.
+#   Statistics are hard-coded as list of 3.
+#   Params: sz used to set text size; lx, ly set position of legent
 Plot.Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
-
+  
   x <- df[, c( 'Region', 'IDS', 'TSS', 'Accuracy', 'TNRWtd' )]
   
   foo <- melt( x, id.vars = c('Region','IDS') )
@@ -371,17 +371,46 @@ IDS.Class.Stats.For.Regions  <- function( df, apal, sz=20, lx=0, ly=0 ){
 }
 
 
+  # a <- df %>%
+  #   ggplot(aes(x = Test.Data, y = Accuracy, fill = Test.Data)) +
+  #   geom_bar(stat = "identity", width = .6, position = "dodge") +
+  #   facet_grid(. ~ Model) +
+  #   scale_fill_manual(values = my.colours) +
+  #   theme_bw() +
+  #   theme(text = element_text( size=sz )) +
+  #   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-  a <- df %>%
-    ggplot(aes(x = Test.Data, y = Accuracy, fill = Test.Data)) +
-    geom_bar(stat = "identity", width = .6, position = "dodge") +
-    facet_grid(. ~ Model) +
-    scale_fill_manual(values = my.colours) +
-    theme_bw() +
-    theme(text = element_text( size=sz )) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+#-- Map prevalence compared to model test prevalence
+Plot.Pred.Map.Prevalence <- function( maprev, bs){
+# TAKES: maprev: Map prevalence saved as part of study area predictions
+#        bs: Summary of the build prevalences
+  
+  a <- rbind( maprev$Coast2, maprev$HG2, maprev$NCC2, maprev$WCVI2, maprev$QCS2, maprev$SOG2 )
+  colnames( a ) <- c('Hard','Mixed','Sand','Mud')
+  a <- round( a/100, 2)
+  a <- cbind( Region = c('Coast','HG','NCC','WCVI','QCS','SOG'), data.frame(a) )
+  a <- cbind( Stat = 'Map', a )
+  
+  b <- bs$build.results.ClassPrev[ bs$build.results.ClassPrev$Stat == 'Pred',]
+  b <- cbind( b[ , c(1,2)],
+              round( b[ , c(-1,-2)] / rowSums(b[ , c(-1,-2)]), 2) )
+  
+  c <- rbind(a, b)
+  
+  y <- melt(c, id.vars = c('Region','Stat') )
+  y <- mutate(y, Scale = factor(Stat, levels=c("Pred", "Map")))
+  
+  ggplot(y, aes(x=Scale, y=value, fill=variable, order=desc(variable) )) +
+    geom_bar(stat="identity") +
+    facet_grid(. ~ Region) +
+    scale_fill_manual( values = pal.map,
+                       name = 'Class') +
+    labs( y = NULL, legend = 'Prevalence' ) +
+    theme( text = element_text( size=20 ),
+    )
 }
-
 
 
 
@@ -394,8 +423,11 @@ Plot.Pontius.By.IDS.For.Regions <- function( df, apal, sz=20 ){
     geom_bar(stat="identity") +
     labs( y = NULL, legend = 'Metric' ) +
         facet_grid(. ~ Region) +
+    
     theme( text = element_text( size=sz ),
+           axis.text.x  = element_text(angle = 90, hjust = 1)
            ) +
+    
     scale_fill_manual( values = apal,
                        name = 'Metrics')
   

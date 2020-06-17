@@ -14,6 +14,9 @@
 
 # NOTES:
 #   2020/04/09: sample_effect.R DEFERRED UNTIL SUBSTRATE PAPER COMPLETE
+#   2020/06/15: re-structure with all plotting happening in RMD file. 
+#     This script now makes data structures and write CSV summaries, picked up by RMD.
+#     The process is documented in the RMD.
 #
 #*******************************************************************************
 
@@ -288,9 +291,10 @@ build.sum <- Summarize.Build( build.results )
 #   Build_results_byClassStats.csv - build.results.ByClass
 #   Build_results_testPrevalence.csv - build.results.ClassPrev
 #   Build_results_varImportance.csv - build.results.VarImport
-#   CSVs are good for tables but loose useful DF bits ... 
+#   CSVs are good for tables but lose useful DF bits ... 
 
-#------- Produce and save some plots ----------------
+
+#---Part 3: Produce and save some build results plots ------------
 
 #--- Heatmaps (tigures!) of build stats as png files from above csv files.
 
@@ -318,7 +322,9 @@ ggsave( 'Class Stats (Build) for Regions.png', a, dpi = 300, width = 16, height 
 
 
 #======================================================================
-#-- How does the 100m model perform regionally?
+#---Part 4: Model resolution tests 
+
+#-- 4a: How does the 100m model perform regionally?
 #   Requires patitioning of the Obs testing data with 100 m predictors. 
 #   Use the spatial info on the points to separate using the Region shape file.
 #   NOTE: This is not the same as the Obs partitioned and loaded w the 20 m predictors.
@@ -345,12 +351,12 @@ write.csv( x, file = file.path(results.dir, out.file) )
 #-- Above shows that 100m model performance is NOT very skewed by regions.
 
 
+#------------------------------------------------------------------
+#-- Part 4b: How do the two model resolutions compare across depths?
+#     Assess ribbons within each region
 
-#====================================================================================
-#-- How do the two model resolutions compare across depth classes within each region?
-
-# First test the 100 m model by depth class within each region. Uses the 100 m 
-# predictors partitioned above. 
+# First test the 100 m model by ribbon within each region. 
+#   test.regions are the 100 m test data partitioned above. 
 
 x <- rbind(
   cbind( 'Region' = 'HG', Coast.Fit.By.Region.By.Depth( test.regions$HG )),
@@ -359,7 +365,7 @@ x <- rbind(
   cbind( 'Region' = 'QCS', Coast.Fit.By.Region.By.Depth( test.regions$QCS )),
   cbind( 'Region' = 'SOG', Coast.Fit.By.Region.By.Depth( test.regions$SOG )) )
 
-#-- Now do the regional models. Each model uses its own withheld Obs data ... 
+# Now test the regional models; each model uses its own, named 20 m Obs testing data.
 
 y <- rbind(
 #  cbind( 'Region' = 'Coast',Model.Fit.Obs.By.Depth( 'Coast', 3 )),
@@ -371,36 +377,210 @@ y <- rbind(
 
 # Combine the two results ... 
 
-z <- rbind( 
+depth.results <- rbind( 
   cbind( Model = '100 m', x ),
   cbind( Model = '20 m', y ) )
-row.names(z) <- NULL
+row.names( depth.results ) <- NULL
 
-str(z)
-out.file <- 'TSS_byClass_withinRegion.csv'
-write.csv( z[ , c("Model", "Region", "Ribbon", "TSS")], file = file.path(results.dir, out.file) )
+str( depth.results )
 
-#-- What does a tigure look like?
-Plot.Region.Class.Stats( 'TSS_byClass_withinRegion.csv', '20 m', pal.10 )
-Plot.Region.Class.Stats( 'TSS_byClass_withinRegion.csv', '100 m', pal.10 )
-# vs ... 
-Plot.TSS.By.Depth.For.Regions( z[ , c('Model', 'Region', 'Ribbon', 'TSS')], pal.cole[-3] )
+out.file <- 'Stats_byRibbon_byRegion_byModel.csv'
+write.csv( depth.results, file = file.path(results.dir, out.file) )
+
+Plot.TSS.By.Depth.For.Regions( depth.results[ , c('Model', 'Region', 'Ribbon', 'TSS')], pal.cole[-3] )
+
+
+#-- vs. What does a tigure look like? Not so good ... 
+out.file <- 'TSS_byRibbon_byRegion_byModel.csv'
+write.csv( depth.results[ , c("Model", "Region", "Ribbon", "TSS")], file = file.path(results.dir, out.file) )
+
+Plot.Region.Class.Stats( 'TSS_byRibbon_byRegion_byModel.csv', '20 m', pal.10 )
+Plot.Region.Class.Stats( 'TSS_byRibbon_byRegion_byModel.csv', '100 m', pal.10 )
+
+
+
+
+#-------------------------------------------------------------------------
+#-------- Do all the above a second time, with the longer list of ribbons.
+
+x <- rbind(
+  cbind( 'Region' = 'HG', Coast.Fit.By.Region.By.Depth2( test.regions$HG )),
+  cbind( 'Region' = 'NCC', Coast.Fit.By.Region.By.Depth2( test.regions$NCC )),
+  cbind( 'Region' = 'WCVI', Coast.Fit.By.Region.By.Depth2( test.regions$WCVI )),
+  cbind( 'Region' = 'QCS', Coast.Fit.By.Region.By.Depth2( test.regions$QCS )),
+  cbind( 'Region' = 'SOG', Coast.Fit.By.Region.By.Depth2( test.regions$SOG )) )
+
+# Now test the regional models; each model uses its own, named 20 m Obs testing data.
+
+y <- rbind(
+  #  cbind( 'Region' = 'Coast',Model.Fit.Obs.By.Depth( 'Coast', 3 )),
+  cbind( 'Region' = 'HG',   Model.Fit.Obs.By.Depth2( 'HG', 3 )),
+  cbind( 'Region' = 'NCC',  Model.Fit.Obs.By.Depth2( 'NCC', 3 )),
+  cbind( 'Region' = 'WCVI', Model.Fit.Obs.By.Depth2( 'WCVI', 3 )),
+  cbind( 'Region' = 'QCS',  Model.Fit.Obs.By.Depth2( 'QCS', 3 )),
+  cbind( 'Region' = 'SOG',  Model.Fit.Obs.By.Depth2( 'SOG', 3 )) )
+
+# Combine the two results ... 
+
+depth.results2 <- rbind( 
+  cbind( Model = '100 m', x ),
+  cbind( Model = '20 m', y ) )
+row.names( depth.results2 ) <- NULL
+
+
+out.file <- 'Stats_byRibbon2_byRegion_byModel.csv'
+write.csv( depth.results, file = file.path(results.dir, out.file) )
+
+Plot.TSS.By.Depth.For.Regions( depth.results2[ , c('Model', 'Region', 'Ribbon', 'TSS')], pal.cole[-3] )
+
+
+#-- vs. What does a tigure look like? Not so good ... 
+out.file <- 'TSS_byRibbon2_byRegion_byModel.csv'
+write.csv( depth.results[ , c("Model", "Region", "Ribbon", "TSS")], file = file.path(results.dir, out.file) )
+
+Plot.Region.Class.Stats( 'TSS_byRibbon2_byRegion_byModel.csv', '20 m', pal.10 )
+Plot.Region.Class.Stats( 'TSS_byRibbon2_byRegion_byModel.csv', '100 m', pal.10 )
+
+
+
+
+
+
 
 
 #--------------------------------------------------------------------
 #-- Some regression to see what's driving the different metrics  ... 
 #   Have tested with/without N and Imbalance. No change. 
 #   REPLACE TSS with other metrics to create the results 
-names(z)
-cor( z[, -c(1:3)] )
-a <- lm( TSS ~ Model + Region + Ribbon + N + Imbalance, data = z )
+names(depth.results)
+cor( depth.results[, -c(1:3)] )
+a <- lm( TSS ~ Model + Region + Ribbon + N + Imbalance, data = depth.results )
 summary(a)
 anova( a )
 
 
-#====================================================================================
+
+#=======================================
+#-- Part 5 - Independent Data Evaluation
+# Comparisons include:
+#   1. Coastwide model vs. all 3 ID sets.
+#     ID merged from the regions to test coastwide.
+#     summarizes the merged IDS
+#   2. Regional models vs. all 3 ID sets. 
+#     summarizes the regional IDS
+
+
+#--- 1. Test each model (n=6) vs. each of the IDS.
+# Build new every time to ensure its fresh. Doesn't take long.
+# Question(2020/05/18): Since WCVI, QCS, and SOG regions now dropped because of low sample size,
+#   is it necessary to drop them  out of the Coast evaluation here? Prob not. Just don't get used.
+
+IDE.results <- Do.Independent.Evaluation()
+
+#--------------------------------------
+#-- Present some Initial IDE results ... 
+
+
+#--- 1) Begin by looking at IDS sample sizes using the perClass prevalences 
+
+### Code section copied to RMD file (Figure 7). 
+
+#----- Above results suggest IDS focus needs to be on Coast, HG, and NCC ... 
+#     This should apply to the data density test as well then. See below.
+
+
+#--- 2) Look at class statistics by IDS ... User/producer accuracies by regions by IDS. 
+
+### Challenge here is there is an extra dimension: Stat, Class, Region, IDS ...
+#     Could stack a bar within a facet but ... :\
+#    Plot for each region? For each IDS? Not clear. :(
+
+#--- Assemble the data ... 
+x <- IDE.results$PerClass
+y <- x[ x$Stat %in% c( 'User', 'Prod'), ]
+y <- y[ y$Region %in% c( 'Coast', 'HG', 'NCC'), ]
+
+# Tidy the data a bit  ... 
+colnames(y) <- c( 'Region', 'IDS', 'Stat', 'Rock', 'Mixed', 'Sand', 'Mud')
+rownames(y) <- NULL
+
+a <- IDS.Class.Stats.For.Regions( y, pal.3.win, sz = 25, lx=0.83, ly=0.75 )
+
+
+#---------------------
+# 3) Look at Integrated statistics for each IDS by Region.
+# Use a predetermined collection of stats (see function)
+
+# Again, start with a little data prep ... 
+
+y <- IDE.results$Integrated
+z <- y[ y$Region %in% c('Coast', 'HG', 'NCC'), ]
+rownames(z) <- NULL
+z
+  
+# This function can be used to generate various views of the data. 
+# 2020/05/25 DH preferred IDS as the grouping variable ... 
+Plot.Stats.By.IDS.For.Regions( z, pal.3.win, sz = 25, lx=0.76, ly=0.87 )
+ggsave( paste0( 'Integrated Stats by IDE for Regions.png'), a, dpi = 300, width = 16, height = 10, path = output.dir)
+
+
+# What about TSS vs. Quantity and Allocation?
+# Remember: Accuracy = 1 – (Quantity + Exchange + Shift).
+zz <- z$Shift + z$Exchange
+zz <- zz[, c( 'Region', 'IDS', 'Accuracy', 'Quantity', 'Exchange','Shift' )]
+head(zz)
+
+Plot.Pontius.By.IDS.For.Regions( zz, rev(pal.4), sz = 25 )
+
+
+#=========================================== 
+#--- Part 6 - Test data density effect -----
+
+#-- Use function to return lists of Obs testing data in low/high density regions.
+#   Calls shape file directly. 
+
+dens.lists <- Partition.By.Density( point.data$Obs[ point.data$Obs$TestDat == 1, ])
+
+# Some double checking: lengths and names ... 
+dim( point.data$Obs[ point.data$Obs$TestDat == 1, ] )
+dim( dens.lists$Dense  )
+dim( dens.lists$Sparse )
+names( dens.lists$Sparse )
+
+# So ... do the two data sets evaluate differently?
+
+x <- rbind(
+  cbind( 'Density' = 'Low',  Results.Row( rf.region.Coast, dens.lists$Sparse )$Integrated ), 
+  cbind( 'Density' = 'High', Results.Row( rf.region.Coast, dens.lists$Dense )$Integrated )
+)
+
+
+y <- Partition.By.Density( point.data$Obs[ point.data$Obs$TestDat == 1, ])
+
+
+
+
+
+#-- Build the table piece ... 
+compare.what <- data.frame( 'Region' = 'Coast', 'IDS' = 'Dive' )
+w <- Results.Row( rf.region.Coast, x.test )
+x <- cbind( compare.what, w$Integrated )
+results.int <- rbind( results.int, x ) 
+
+
+
+#--- Potential plots... 
+#     Compare the IDs results to some of the Obs testing results if desired ...Options = 
+#     1) compare model ranks across test data; 
+#     2) test how sample size affects results? What about empty classes?
+
+
+
+#=============================================
+#-- Part 7 - Spatial substrate predictions ... 
 #-- Create study area-wide predictions so that can compare prevalence of 
 # study area prediction to training data ... 
+
 
 #-------------------------------------------
 #  Load the predicted rasters and prevalences  ... 
@@ -471,39 +651,13 @@ save( map.prev,
 
 #----- Plot the Study Area prevalence results ------
 
-# Pull the prevalence tables for each region and knock into shape ... 
-a <- rbind( map.prev$Coast2, map.prev$HG2, map.prev$NCC2, map.prev$WCVI2, map.prev$QCS2, map.prev$SOG2 )
-colnames( a ) <- c('Hard','Mixed','Sand','Mud')
-a <- round( a/100, 2)
-a <- cbind( Region = c('Coast','HG','NCC','WCVI','QCS','SOG'), data.frame(a) )
-a <- cbind( Stat = 'Map', a )
+# Prepare the prevalence tables for each region, knock into shape, and ggplot() ... 
+# Called by RMD: 
+#   Plot.Pred.Map.Prevalence( map.prev, build.sum)
 
-b <- build.sum$build.results.ClassPrev[ build.sum$build.results.ClassPrev$Stat == 'Pred',]
-b <- cbind( b[ , c(1,2)],
-            round( b[ , c(-1,-2)] / rowSums(b[ , c(-1,-2)]), 2) )
 
-c <- rbind(a, b)
-
-y <- melt(c, id.vars = c('Region','Stat') )
-y <- mutate(y, Stat = factor(Stat, levels=c("Pred", "Map")))
-  
-a <- ggplot(y, aes(x=Stat, y=value, fill=variable, order=desc(variable) )) +
-  geom_bar(stat="identity") +
-  facet_grid(. ~ Region) +
-  scale_fill_manual( values = pal.map,
-                       name = 'Class') +
-  labs( y = NULL, legend = 'Prevalence' ) +
-  theme( text = element_text( size=20 ),
-  ) 
-
-cbind( c, rowSums(c[, -c(1,2)]))
-  
-x <- build.sum$build.results.ClassPrev[ build.sum$build.results.ClassPrev$Stat == 'Obs',]
-x <- cbind( x[ , c(1,2)],
-            round( x[ , c(-1,-2)] / rowSums(x[ , c(-1,-2)]), 2) )
-  
-
-#-------------------- Manual plotting of predicted tifs -----------------
+#---- Manual plotting of predicted tifs ----
+#  UNDER DEVELOPMENT - Saving and plotting predictions has become a bit of a pain. 
 
 x <- pal.map
 
@@ -517,12 +671,11 @@ str(y)
 png(file=b,
     height = 7, width = 6, units = "in", res = 400)
 raster::plot(y, maxpixels=5000000, col = x, legend=FALSE,
-     xlab = "Easting", ylab = "Northing", cex.axis = .5, cex.lab = .75)
+             xlab = "Easting", ylab = "Northing", cex.axis = .5, cex.lab = .75)
 legend(x = "bottomleft",
        legend =  c("Rock", "Mixed", "Sand", "Mud"), fill = x, title=NA, bg = NA, box.col = NA)
 
 dev.off()
-
 
 
 # How to use the string in the list naming? ugh. i.e., 
@@ -530,128 +683,6 @@ map.prev <- c(map.prev, eval( parse(paste0( a, '=9876' )) ))
 
 x[[2]]
 map.prev
-
-
-#====================================================================================
-#-- Independent Data Evaluation --
-# Comparisons include:
-#   1. Coastwide model vs. all 3 ID sets.
-#     ID merged from the regions to test coastwide.
-#     summarizes the merged IDS
-#   2. Regional models vs. all 3 ID sets. 
-#     summarizes the regional IDS
-
-
-#--- 1. Test each model (n=6) vs. each of the IDS.
-# Build new every time to ensure its fresh. Doesn't take long.
-# Question(2020/05/18): Since WCVI, QCS, and SOG regions now dropped because of low sample size,
-#   is it necessary to drop them  out of the Coast evaluation here? Prob not. Just don't get used.
-
-results.table <- Do.Independent.Evaluation()
-
-#--------------------------------------
-#-- Present some Initial IDE results ... 
-
-
-#--- 1) Begin by looking at IDS sample sizes
-#       Do this by looking at the perClass prevalences 
-x <- results.table$PerClass
-y <- x[ x$Stat == 'PrevObs', ]
-
-# Tidy the data a bit  ... 
-y <- x[ x$Stat == 'PrevObs', ] %>% subset(select = -c(Stat))
-colnames(y) <- c( 'Region', 'IDS', 'Rock', 'Mixed', 'Sand', 'Mud')
-rownames(y) <- NULL
-
-# fill in  blank data to balance plot ... 
-y <- rbind( y, data.frame( 'Region' = 'WCVI', 'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0),
-               data.frame( 'Region' = 'QCS',  'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0),
-               data.frame( 'Region' = 'SOG',  'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0) )
-
-Plot.Obs.By.IDS.For.Regions( y, pal.3.win, sz = 25, lx=0.83, ly=0.75 )
-
-#----- Above results suggest IDS focus needs to be on Coast, HG, and NCC ... 
-#     This should apply to the data density test as well then. See below.
-
-#--- 2) Look at class statistics by IDS ... 
-#       User/producer accuracies by regions by IDS. 
-
-#--- Assemble the data ... 
-x <- results.table$PerClass
-y <- x[ x$Stat %in% c( 'User', 'Prod'), ]
-y <- y[ y$Region %in% c( 'Coast', 'HG', 'NCC'), ]
-
-# Tidy the data a bit  ... 
-colnames(y) <- c( 'Region', 'IDS', 'Stat', 'Rock', 'Mixed', 'Sand', 'Mud')
-rownames(y) <- NULL
-
-### Challenge here is there is an extra dimension. Could stack a bar within a facet but ... :\
-### Plot for each region? For each IDS? Not clear. :(
-
-a <- IDS.Class.Stats.For.Regions( y, pal.3.win, sz = 25, lx=0.83, ly=0.75 )
-ggsave( 'Class Stats (IDE) for Regions.png', a, dpi = 300, width = 16, height = 10, path = output.dir)
-
-
-
-#---------------------
-# 3) Look at Integrated statistics for each IDS by Region.
-# Use a predetermined collection of stats (see function)
-
-# Again, start with a little data prep ... 
-
-y <- results.table$Integrated
-z <- y[ y$Region %in% c('Coast', 'HG', 'NCC'), ]
-rownames(z) <- NULL
-z
-  
-# This function can be used to generate various views of the data. 
-# 2020/05/25 DH preferred IDS as the grouping variable ... 
-Plot.Stats.By.IDS.For.Regions( z, pal.3.win, sz = 25, lx=0.76, ly=0.87 )
-ggsave( paste0( 'Integrated Stats by IDE for Regions.png'), a, dpi = 300, width = 16, height = 10, path = output.dir)
-
-
-# What about TSS vs. Quantity and Allocation?
-# Remember: Accuracy = 1 – (Quantity + Exchange + Shift).
-z$Allocation <- z$Shift + z$Exchange
-z <- z[, c( 'Region', 'IDS', 'Accuracy', 'Quantity', 'Exchange','Shift' )]
-head(z)
-
-Plot.Pontius.By.IDS.For.Regions( z, rev(pal.4), sz = 25 )
-
-
-#---------- Test data density ---------
-
-#-- Load shapefile containing high/low densities ... 
-pgons <- readOGR( file.path(source.dir, "/regions/hi_density_area.shp") )
-
-x <- point.data$Obs[ point.data$Obs$TestDat == 1, ]
-
-projection(pgons)
-projection(x)
-
-
-y <- x[ pgons[ pgons$name == "High_Density_Area",], ]@data
-
-y <- x[ , !colnames(x) %in% drop.list ]
-names(y)[3:12] <- names.100m 
-out <- c( out, list( 'HG' = y) )
-
-
-
-#-- Take IDS for HG and NCC regions only and separate by complex and not. 
-#-- But I think we talked about using the OBS data here  ... makes more sense. 
-#-- Test. 
-
-
-
-
-
-
-#--------------- UNDER CONSTRUCTION ---------------------
-
-#-- Can compare the IDs results to some of the Obs testing results if desired ...Options = 
-#     1) compare model ranks across test data; 
-#     2) test how sample size affects results? What about empty classes?
 
 
 
