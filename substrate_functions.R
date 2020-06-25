@@ -32,12 +32,8 @@ if(length(uninstalled.packages)) install.packages(uninstalled.packages)
 
 # require all necessary packages
 lapply(required.packages, require, character.only = TRUE)
-
 #lapply(required.packages, library, character.only = TRUE)
 
-#-- devtools required above to properly install colours ... the first time?
-#devtools::install_github("jakelawlor/PNWColors") 
-library(PNWColors)
 
 #----------------------------------------------------------------------------
 #-- Data sources and other constants ...  
@@ -76,6 +72,12 @@ log.file <- 'IDE_test_log.txt'
 
 #-- Relevant RF constants. (Had 2 imps but one was for Random Forest)
 RFC <- list( 'ntree'=1000, 'repl'=TRUE, 'imp'='impurity', 'test.frac'=0.6 )
+
+
+#-- Some constants to standardize the managment of attribute names across the 
+#   100 m and 20 m predictors. 
+
+drop.list <- c('BT_Sorc','Rock','X','Y')
 
 
 #============================================================================
@@ -130,7 +132,7 @@ Results.Row <- function( testModel, testData, mant = 3 ){
     "N"         = nrow( testData),
     "Imbalance" = round( prev, mant ), 
     "OOB"       = round( testModel$prediction.error, mant ),
-    "TSS"       = TSS.Calc( y$table ),
+    "TSS"       = TSS.Calc( y$table, TRUE ),
 #    "Kappa"     = round( as.numeric( y$overall[ 'Kappa' ]), mant ),
     "Accuracy"  = round( as.numeric( y$overall[ 'Accuracy' ]), mant ),
     'TNRWtd'    = round( sum( z$Specificity * z$Prevalence ), mant ),
@@ -169,7 +171,7 @@ Results.Row <- function( testModel, testData, mant = 3 ){
 # Assumes: 4x4 matrix
 # Notes:   Correcting for chance success reduces the sample size on 
 #   the diagonal ... 
-TSS.Calc <- function( cTable ){
+TSS.Calc <- function( cTable, scaleOut = F ){
   x <- matrix( cTable, 4,4 )
 
   # Expected correct predictions by chance (diagonal)
@@ -182,8 +184,13 @@ TSS.Calc <- function( cTable ){
   
   # Perfect forecast corrected for success due to chance 
   R.star <- n.star - ( n.star^2/sum(x) )
-    
-  return( round( sum(R) / sum(R.star), 3) )
+  
+  out <- round( sum(R) / sum(R.star), 3)
+  
+  if (scaleOut == T) 
+    return( (out+1)/2 )
+  else
+    return( out )
     
 }
 
@@ -611,10 +618,28 @@ Summarize.Build <- function( build.df ){
 }
 
 
+Rename.100m.Preds <- function( df ){
+  # Rename 100 m predictors to match names used for 20 m predictors 
+  # x <- names( dive.20mIV$NCC )
+  # x <- x[ !x %in% c("fetch")]
+  # names.100m <- x[4:13]
+  # names(obs.100mIV)[5:14] <- names.100m
+  
+  names(df)[names(df)=="brd_BPI"] <- "broad_BPI"
+  names(df)[names(df)=="circltn"] <- "circulation"
+  names(df)[names(df)=="curvatr"] <- "curvature"
+  names(df)[names(df)=="fin_BPI"] <- "fine_BPI"
+  names(df)[names(df)=="rugosty"] <- "rugosity"
+  names(df)[names(df)=="sd_slop"] <- "sd_slope"
+  
+  return(df)
+}
+
+
 #---------------------------------------------
 # Partition input points according to regions.
+# Called by: Regional.Test.100m()
 # Returns: List of point dataframes, one for each region
-# Requires: names.100m as a global (defined during data load)
 # Notes:   Region names and source features hard-coded in function
 Partition.Test.Data <- function( pts ){
   
@@ -623,38 +648,36 @@ Partition.Test.Data <- function( pts ){
   #-- Load the regions shape file containing the region pgons ... 
   pgons <- readOGR( file.path(source.dir, "/regions/BC_coast_regions.shp") )
   
-  drop.list <- c('BT_Sorc','Rock','X','Y','ID')
-  
   x <- pts@data
   x$BType4 <- as.factor( x$BType4 )
   #-- Return corrected coast  first ... 
   y <- x[ , !colnames(x) %in% drop.list ]
-  names(y)[3:12] <- names.100m 
+  y <- Rename.100m.Preds( y )
   out <- c( out, list( 'Coast' = y) )
   
   x <- pts[ pgons[ pgons$Region == "Haida Gwaii",], ]@data
   y <- x[ , !colnames(x) %in% drop.list ]
-  names(y)[3:12] <- names.100m 
+  y <- Rename.100m.Preds( y )
   out <- c( out, list( 'HG' = y) )
   
   x = pts[ pgons[ pgons$Region == "North Central Coast",], ]@data
   y <- x[ , !colnames(x) %in% drop.list ]
-  names(y)[3:12] <- names.100m 
+  y <- Rename.100m.Preds( y )
   out <- c( out, list( 'NCC' = y) )
   
   x = pts[ pgons[ pgons$Region == "West Coast Vancouver Island",], ]@data
   y <- x[ , !colnames(x) %in% drop.list ]
-  names(y)[3:12] <- names.100m 
+  y <- Rename.100m.Preds( y )
   out <- c( out, list( 'WCVI' = y) )
   
   x = pts[ pgons[ pgons$Region == "Queen Charlotte Strait",], ]@data
   y <- x[ , !colnames(x) %in% drop.list ]
-  names(y)[3:12] <- names.100m 
+  y <- Rename.100m.Preds( y )
   out <- c( out, list( 'QCS' = y) )
   
   x = pts[ pgons[ pgons$Region == "Strait of Georgia",], ]@data
   y <- x[ , !colnames(x) %in% drop.list ]
-  names(y)[3:12] <- names.100m 
+  y <- Rename.100m.Preds( y )
   out <- c( out, list( 'SOG' = y) )
   
   return( out )
@@ -672,9 +695,6 @@ Partition.By.Density <- function( pts ){
   
   #-- Load the regions shape file containing the High Density pgons ... 
   pgons <- readOGR( file.path(source.dir, "/regions/hi_density_area.shp") )
-  
-  drop.list <- c('BT_Sorc','Rock','X','Y','ID')
-  
   
   # Split the points into those that fall in the High density area ... 
   dens.pts <- x[ pgons[ pgons$name == "High_Density_Area",], ]@data
@@ -790,10 +810,110 @@ split.Obs.Data <- function( obs, seed, train.size ){
 #--------------------------------------------------------
 # Pulls all the ID set data together for coastal tests ... 
 # USES train.data as a global variable. 
-Assemble.Coast.Test <- function( indat ){
-  x <- rbind( indat[['NCC']], indat[['HG']], indat[['WCVI']], indat[['QCS']], indat[['SOG']] )
+Assemble.NCoast.Test <- function( indat ){
+  x <- rbind( indat[['NCC']], indat[['HG']] )
   return( x )
 }
+
+
+#--------------------------------------------------------
+# Test how  the 100m model performs at the regions.
+# Requires patitioning of the Obs testing data with 100 m predictors. 
+# Use the spatial info on the Obs points to separate them using the region shape file.
+Regional.Test.100m <- function( obsTest ){
+  
+  tr <- Partition.Test.Data( point.data$Obs[ point.data$Obs$TestDat == 1, ] )
+  #length( tr )
+  #names( tr )
+  #names( tr$NCC )
+  #str( tr$NCC )
+  
+  x <- rbind( 
+    cbind( 'Region' = 'Coast', Results.Row( rf.region.Coast, tr$Coast )$Integrated), 
+    cbind( 'Region' = 'HG', Results.Row( rf.region.Coast, tr$HG )$Integrated), 
+    cbind( 'Region' = 'NCC', Results.Row( rf.region.Coast, tr$NCC )$Integrated),
+    cbind( 'Region' = 'WVVI', Results.Row( rf.region.Coast, tr$WCVI )$Integrated), 
+    cbind( 'Region' = 'QCS', Results.Row( rf.region.Coast, tr$QCS )$Integrated),
+    cbind( 'Region' = 'SOG', Results.Row( rf.region.Coast, tr$SOG )$Integrated)
+  )
+  
+  out.file <- '100m_Performance_Regionally.csv'
+  write.csv( x, file = file.path(results.dir, out.file) )
+  
+  return( tr )
+}
+
+
+
+Models.Across.Ribbons <- function( tr ){
+  
+  x <- rbind(
+    cbind( 'Region' = 'HG',  Coast.Fit.By.Region.By.Depth( tr$HG )),
+    cbind( 'Region' = 'NCC', Coast.Fit.By.Region.By.Depth( tr$NCC )),
+    cbind( 'Region' = 'WCVI',Coast.Fit.By.Region.By.Depth( tr$WCVI )),
+    cbind( 'Region' = 'QCS', Coast.Fit.By.Region.By.Depth( tr$QCS )),
+    cbind( 'Region' = 'SOG', Coast.Fit.By.Region.By.Depth( tr$SOG )) )
+  
+  # Now test the regional models; each model uses its own, named 20 m Obs testing data.
+  
+  y <- rbind(
+    #  cbind( 'Region' = 'Coast',Model.Fit.Obs.By.Depth( 'Coast', 3 )),
+    cbind( 'Region' = 'HG',   Model.Fit.Obs.By.Depth( 'HG', 3 )),
+    cbind( 'Region' = 'NCC',  Model.Fit.Obs.By.Depth( 'NCC', 3 )),
+    cbind( 'Region' = 'WCVI', Model.Fit.Obs.By.Depth( 'WCVI', 3 )),
+    cbind( 'Region' = 'QCS',  Model.Fit.Obs.By.Depth( 'QCS', 3 )),
+    cbind( 'Region' = 'SOG',  Model.Fit.Obs.By.Depth( 'SOG', 3 )) )
+  
+  # Combine the two results ... 
+  
+  dr <- rbind( 
+    cbind( Model = '100 m', x ),
+    cbind( Model = '20 m', y ) )
+  row.names( dr ) <- NULL
+  
+  #str( dr )
+  
+  out.file <- 'Stats_byRibbon_byRegion_byModel.csv'
+  write.csv( dr, file = file.path(results.dir, out.file) )
+  
+  return( dr )
+}
+
+
+Models.Across.Ribbons2 <- function( tr ){
+  
+  x <- rbind(
+    cbind( 'Region' = 'HG',  Coast.Fit.By.Region.By.Depth2( tr$HG )),
+    cbind( 'Region' = 'NCC', Coast.Fit.By.Region.By.Depth2( tr$NCC )),
+    cbind( 'Region' = 'WCVI',Coast.Fit.By.Region.By.Depth2( tr$WCVI )),
+    cbind( 'Region' = 'QCS', Coast.Fit.By.Region.By.Depth2( tr$QCS )),
+    cbind( 'Region' = 'SOG', Coast.Fit.By.Region.By.Depth2( tr$SOG )) )
+  
+  # Now test the regional models; each model uses its own, named 20 m Obs testing data.
+  
+  y <- rbind(
+    #  cbind( 'Region' = 'Coast',Model.Fit.Obs.By.Depth( 'Coast', 3 )),
+    cbind( 'Region' = 'HG',   Model.Fit.Obs.By.Depth2( 'HG', 3 )),
+    cbind( 'Region' = 'NCC',  Model.Fit.Obs.By.Depth2( 'NCC', 3 )),
+    cbind( 'Region' = 'WCVI', Model.Fit.Obs.By.Depth2( 'WCVI', 3 )),
+    cbind( 'Region' = 'QCS',  Model.Fit.Obs.By.Depth2( 'QCS', 3 )),
+    cbind( 'Region' = 'SOG',  Model.Fit.Obs.By.Depth2( 'SOG', 3 )) )
+  
+  # Combine the two results ... 
+  
+  dr <- rbind( 
+    cbind( Model = '100 m', x ),
+    cbind( Model = '20 m', y ) )
+  row.names( dr ) <- NULL
+  
+  
+  out.file <- 'Stats_byRibbon2_byRegion_byModel.csv'
+  write.csv( dr, file = file.path(results.dir, out.file) )
+
+return( dr )
+}
+
+
 
 
 ### fin.

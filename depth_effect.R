@@ -91,7 +91,6 @@ Coast.Fit.By.Region.By.Depth <- function( tdat, mant = 3 ){
 z.breaks2 <- c( -1000, 0, 5, 10, 20, 50, 100, 200, 5000)
 z.ribs2 <- c('ITD', '0-5', '5-10', '10-20', '20-50', '50-100', '100-200', '200+')
 
-
 Model.Fit.Obs.By.Depth2 <- function( regName, mant = 3 ){
   
   rf <- eval(parse( text=paste0( "rf.region.", regName ) ))
@@ -145,8 +144,7 @@ Coast.Fit.By.Region.By.Depth2 <- function( tdat, mant = 3 ){
 }
 
 
-#================================ IDS Tests ==================================
-
+#========================== IDS Tests by depth ==============================
 # 2020/05/10: Below needs updating based on objectives.
 
 results.table <- NULL   # Re-use this name for the results here. 
@@ -155,7 +153,7 @@ z.table <- NULL         # A mean depth table, FWIW.
 #---------------------------------------------------
 # 1. DIVE DATA: Assemble the data across regions ... 
 rm( 'x.sub', 'x.test')
-x.test <- Assemble.Coast.Test( dive.data )
+x.test <- Assemble.NCoast.Test( dive.20mIV )
 j <- "Dive"
 z.row <- NULL
 

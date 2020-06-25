@@ -1,7 +1,7 @@
 ---
-title: "Substrate Figures"
+title: "Substrate Tables and Figures"
 author: "Edward Gregr"
-date: "6/15/2020"
+date: "6/17/2020"
 output: word_document
 ---
 
@@ -10,37 +10,51 @@ knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(fig.width=12, fig.height=8) 
 
 ```
+# Overview 
 
-# Tables and Figures 
+Since the meeting on 2020/06/18:
+- colour-blind palette done
+    Now hard to find text that works on all heat map colours
+    Obs/Pred and Model/Map pairs could have different (but consistent colours)
+    
+- TSS difference done for depth classes
 
-Eds first R Markdown document. Going big sending it to an MS Word document.
+TO DO:  
+- Create new Suppl. materials section.   
 
-First step is to get it to run generating plots from existing data objects in the environment.  
-Second step would be to use it to optionally re-build the objects.
+Table X (Manually built): Results from density comparison (TSS not corrected).  
+Include regional models. Table or figure? 
 
-Challenge: Get Knitr to be able to see the existing objects. Reproducability means code chunks should contain all the work. Not super practical to begin with. Start with running knitr in the gobal environment: Use rmarkdown::render("substrate_figures.Rmd") from console.
-
-Middle road would be to use source() and readLines() within the code chunk. Met with limited success ... 
-
-What does putting a dataframe name in the code chunk options do?  
-Is it best to put captions in the code block, or in the text sections?   
-HOw to set plot dimensions for ggplot()? By default they come up square.   
+Density	N	Imbalance	OOB	TSS	Accuracy	TNRWtd	Quantity	Exchange	Shift
+Low	27282	0.123	0.295	0.565	0.684	0.871	0.046	0.257	0.013
+High	38774	0.205	0.295	0.574	0.713	0.846	0.037	0.243	0.006
 
 
-Details on using R Markdown  <http://rmarkdown.rstudio.com>  
-On defining a style to serve as a pagebreak  <https://datascienceplus.com/r-markdown-how-to-insert-page-breaks-in-a-ms-word-document/>  
-Guidance for landscape tables/pages <https://code-examples.net/en/q/18a6fd6>  
-Messing with figure sizing <https://sebastiansauer.github.io/figure_sizing_knitr/>  
-Some info on KNITR and environment <https://stackoverflow.com/questions/34029611/how-to-use-objects-from-global-environment-in-rstudio-markdown>
+Eds comments:  
+Results are a bit surprising. Thought the difference would be larger. Interesting that dense areas are also more out of balance, but the Quantity error is nevertheless lower.   
 
-From the definitive guide <https://bookdown.org/yihui/rmarkdown/>
+Worth doing by Region? How best to structure? (e.g., pick an earlier figure as a template?).
 
-re figure sizing:
-```{r, fig.width=10, fig.height=2, fig.fullwidth=TRUE}
-par(mar = c(4, 4, .1, .2)); plot(sunspots)
+Group interpretation:   
+- Higher dens sampling areas closer to shore, and more heterogeneity close to shore. Hi dens required to capture this hetro, and so these areas better captured  
+
+- High density areas more heterogeneous, this thought to potentially confuse the model, leading to reduced accuracy.   
+
+To Do: Revisit with top/bottom 25%  
+
+Two parts: Density of points has higher imbalance ? but we are not dealing with complexity of the coastline, which we would see, perhaps if we did it by region.   
+
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
 ```
 
-========================================
 ## Data processing steps
 
 All data structures are saved as .RData files. 
@@ -120,17 +134,13 @@ Do the models predict better in areas of high source data density?
 
 Main results table describes build.   
 
-Probably will want one for IDS as well?  
-
-Also include ANOVA table. A bit tough to build in R?   
-
-Need to figure out how to insert a Word landscape section. Ugh. 
-
 ```{r Build_Tables, echo=FALSE}
 library( knitr )
 
+#-- Main statistics don't make a very nice bar plot. Report as table. 
 T.cap <- "Table 1: Summary of model results by region." 
 kable( build.sum$build.results.Integrated, digits=2, caption = T.cap )
+
 
 # Shrink font ... 
 # Will it be easier to format Caption OUTSIDE w pandoc or INSIDE w kable?
@@ -152,10 +162,20 @@ kable( foo, digits=2, caption = T.cap )
 # summary(a)
 # anova( a )
 
-
 ```
 
+
 Table 2 shows that 100 m model performance is not skewed towards any particular region. That is, it doesn't fit the witheld data any better in one region over another. 
+
+Reasons for thinking processes not stationary: SOG = muddy, NCC = Fjords, WCVI/HG exposed  
+
+Quantity surprisingly low. Exchange potentially driven by Mixed. Can we understand this by looking at class-specific metrics?  
+
+
+
+Include table for IDS results (which ones?)  
+
+Defer building ANOVA table until writing mostly done  
 
 
 
@@ -168,15 +188,17 @@ Table 2 shows that 100 m model performance is not skewed towards any particular 
 library( superheat)
 
 # Library only makes pngs. Can call here, then use pandoc to load the png.
-#   Plot.Build.Class.Stats( build.sum$build.results.ByClass, pal.10, 800, 600 )
-#   Plot.Build.Var.Import( build.sum$build.results.VarImport , pal.11, 1000, 600 )
+# BUT: one of the two calls below plots the palette for some reason ... ?
+
+# Plot.Build.Class.Stats( build.sum$build.results.ByClass, pal.heat.10, 800, 600 )
+# Plot.Build.Var.Import( build.sum$build.results.VarImport, pal.heat.11, 1000, 600 )
 
 # Producer accuracy to be re-made with NO x-axis labels ... 
 # Then can lose the height= ... which doesn't seem to work? Neither does the fullwidth option :\
 
 ```
 
-![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/heat_ProducerAccuracy_Build.png){ fig.width=80% }
+![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/heat_ProducerAccuracy_Build.png)
 ![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/heat_UserAccuracy_Build.png)
 
 **Figure 1a/b: Heatmaps of Class-statistics (User/Producer) across models**  
@@ -217,11 +239,17 @@ Also note that while there is a rank order, some of the predictors are very simi
 ```{r echo=FALSE, fig.width=10, fig.height=6, fig.fullwidth=TRUE}
 
 #-- Prevalence plots (obs & predicted) for build (testing partition), faceted by Region
-Plot.Obs.Pred.Prevalence.Build( build.sum$build.results.ClassPrev, pal.cole ) 
+Plot.Obs.Pred.Prevalence.Build( build.sum$build.results.ClassPrev, pal.cb2 ) 
+# save plot to 'a' if using ggsave()
+# ggsave("Class Prevalence for Obs&Pred (Build) for Regions.png", a, dpi = 300, width = 16, height = 10, path = output.dir)
 
 ```
 
-**Figure 3: Comparison of observed and predicted prevalance for the Obs testing partition, by class, across regions.**  
+**Figure 3: Comparison of observed and predicted prevalence for the Obs testing partition, by class, across regions.**  
+
+
+Hard overpredicted in all regions.  
+
 
 ```{=openxml}
 # Inserting a word page break ... 
@@ -236,11 +264,21 @@ Plot.Obs.Pred.Prevalence.Build( build.sum$build.results.ClassPrev, pal.cole )
 
 ```{r echo=FALSE, fig.width=10, fig.height=6}
 #-- User and producer accuracies by class ... 
-Plot.Class.Stats.For.Regions( build.sum$build.results.ByClass, pal.cole )
+Plot.Class.Stats.For.Regions( build.sum$build.results.ByClass, pal.cb2 )
+# save plot to 'a' if using ggsave()
+# ggsave( 'Class Stats (Build) for Regions.png', a, dpi = 300, width = 16, height = 10, path = output.dir)
 
 ```
 
 **Figure 4: User and Producer accuracies for the Obs testing partition, by class, across regions.**
+
+
+First? Indication that Mixed is a bit of a problem  
+
+Pontius has different names for User/Producer accuracies (commission/omission rates)  
+Need to standardize on the best stats terminology (Joanne/Ed to work on this)  
+
+
 
 ```{=openxml}
 # Inserting a word page break ... 
@@ -257,9 +295,20 @@ Plot.Class.Stats.For.Regions( build.sum$build.results.ByClass, pal.cole )
 #-- depth_results needs to be re-calculated by main script. Not ideal. 
 
 z <- depth.results2
-z$TSS <- (z$TSS+1)/2
 
-Plot.TSS.By.Depth.For.Regions( z[ , c('Model', 'Region', 'Ribbon', 'TSS')], pal.cole[-3] )
+difTSS <- z[ z$Model == '100 m', ]$TSS - z[ z$Model == '20 m', ]$TSS
+z <- cbind( z, 'diffTSS' = difTSS)
+
+Plot.TSS.By.Depth.For.Regions(  z[ , c('Model', 'Region', 'Ribbon', 'TSS')], pal.cb2 )
+Plot.TSS.By.Depth.For.Regions2( z[ , c('Model', 'Region', 'Ribbon', 'diffTSS')], pal.cb2[2] )
+
+#-- vs. What does a tigure look like? Not so good ... 
+# out.file <- 'TSS_byRibbon_byRegion_byModel.csv'
+# write.csv( depth.results[ , c("Model", "Region", "Ribbon", "TSS")], file = file.path(results.dir, out.file) )
+# 
+# Plot.Region.Class.Stats( 'TSS_byRibbon_byRegion_byModel.csv', '20 m', pal.10 )
+# Plot.Region.Class.Stats( 'TSS_byRibbon_byRegion_byModel.csv', '100 m', pal.10 )
+
 ```
 
 **Figure 5: Performance of 20 and 100 m models against the Obs testing partition, across depth ranges, by region.**  
@@ -298,11 +347,14 @@ y <- rbind( y, data.frame( 'Region' = 'WCVI', 'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 
                data.frame( 'Region' = 'QCS',  'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0),
                data.frame( 'Region' = 'SOG',  'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0) )
 
-Plot.Obs.By.IDS.For.Regions( y, pal.3.win, sz = 25, lx=0.83, ly=0.75 )
+Plot.Obs.By.IDS.For.Regions( y, pal.cb3, sz = 25, lx=0.83, ly=0.75 )
 
 ```
 
 **Figure 6: Prevalence of Independent data sets by depth class, across regions. **  
+
+Agreed this will go in Supplemental Materials   
+
 
 ```{=openxml}
 # Inserting a word page break ... 
@@ -326,20 +378,28 @@ y <- IDE.results$Integrated
 z <- y[ y$Region %in% c('Coast', 'HG', 'NCC'), ]
 rownames(z) <- NULL
 
-z$TSS <- (z$TSS+1)/2
 # This function can be used to generate various views of the data. 
 # 2020/05/25 DH preferred IDS as the grouping variable ... 
-a <- Plot.Stats.By.IDS.For.Regions( z, pal.3.win, sz = 25, lx=0.76, ly=0.87 )
+a <- Plot.Stats.By.IDS.For.Regions( z, pal.cb3, sz = 25, lx=0.76, ly=0.87 )
 a
 
 # Saving hi res image for manuscript ... 
 #ggsave( paste0( 'Figure 8 - Integrated Stats by IDE for Regions.png'), a, dpi = 300, width = 16, height = 10, path = output.dir)
 ```
 
-**Figure 7: Integrated statistics for Independent data sets by depth class.**  
+**Figure 7: Integrated statistics for Independent data sets by Region.**  
 
 The TSS for this figure, nominally on the scale [-1, +1], is re-scaled to for better comparison with the other statistics which range from [0, 1]. Reported value is (TSS+1)/2 to scale onto [0, 1].
 
+Cam/ROV better at predicting absence; but why? Look at producer/user accuracies.  
+
+ROV takes dominant class within each pixel.   
+
+Drop cam performance related to depth problem. Lat/lon not accurate because of deflection of camera from vessel.  ROV data corrected to some degree. Sampling bias.  
+
+Include some guidance on drop camera (and other?) data collection. Technical solutions, as well as sample design questions (e.g., how to generate an independent set fo effectively evaluate; e.g., can investigate the heterogeneity in a location. Point is that just cuz something is IDS doesn?t it is ?clean?.   
+
+Also, the close-to-shore challenge of matching the recorded depth to the bathymetric resolution.  Predictor resolution.  
 
 
 ```{=openxml}
@@ -354,15 +414,51 @@ The TSS for this figure, nominally on the scale [-1, +1], is re-scaled to for be
 
 ```{r IDS_Three, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
 
-z <- IDE.results$Integrated
+# What about TSS vs. Quantity and Allocation?
+# Remember: Accuracy = 1 – (Quantity + Exchange + Shift).
+
+y <- IDE.results$Integrated
+z <- y[ y$Region %in% c('Coast', 'HG', 'NCC'), ]
+
 z$Allocation <- z$Shift + z$Exchange
 z <- z[, c( 'Region', 'IDS', 'Accuracy', 'Quantity', 'Exchange','Shift' )]
 
-Plot.Pontius.By.IDS.For.Regions( z, rev(pal.4), sz = 25 )
+Plot.Pontius.By.IDS.For.Regions( z, rev(pal.cb4), sz = 25 )
 ```
 
-**Figure 8: Pontius statistics for Independent data sets by depth class.**  
+**Figure 8: Pontius statistics for Independent data sets by region.**  
 
+
+As with 7, produce another that is by depth classes.   
+
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+
+```{r IDS_Three, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
+# Pontius stats (Accuracy, Quantity, Exchange, Shift) by ribbon in regions ... 
+# Remember: Accuracy = 1 – (Quantity + Exchange + Shift).
+
+y <- IDE.results$Integrated
+z <- y[ y$Region %in% c('Coast', 'HG', 'NCC'), ]
+
+z <- z[, c( 'Region', 'IDS', 'Accuracy', 'Quantity', 'Exchange','Shift' )]
+
+Plot.Pontius.By.IDS.Depth.For.Regions( z, rev(pal.cb4), sz = 25 )
+```
+
+
+
+
+**Figure 9: Pontius statistics for Independent data sets by region, by depth ribbon.**  
 
 ```{=openxml}
 # Inserting a word page break ... 
@@ -376,12 +472,24 @@ Plot.Pontius.By.IDS.For.Regions( z, rev(pal.4), sz = 25 )
 
 ```{r Prevalences, echo=FALSE, fig.fullwidth=TRUE }
 #-- Plots the Study Area prevalence results. Requires the map.prev structure. 
-Plot.Pred.Map.Prevalence( map.prev, build.sum)
+Plot.Pred.Map.Prevalence( map.prev, build.sum, pal.RMSM)
 
 
 ```
 
-**Figure 9: Comparison of prevalence between model build(?) and study area predictions.**    
+**Figure 10: Comparison of prevalence between model build(?) and study area predictions.**    
+
+
+Mapped prevalences are a reasonable reflection of true prevalences by region  
+
+Appeal to author experience. And also technical argument why this would be so. e.g., stationarity across process; we know there is sample bias, would be disturbing to see that reflected in the predicted surface. Shows model is working! And that RF method is dealing well with prevalence.   
+
+Include illustration of value of wtd RF. Good conclusion, emphasizing the importance of dealing with prevalence in models. Table/Fig for suppl. Materials.  
+
+X-axis labels suck.  Observed / Mapped.  Points / Surface  
+
+Standardize terminology with earlier figure that compares build/test prevalences   
+
 
 ```{=openxml}
 # Inserting a word page break ... 
@@ -393,3 +501,32 @@ Plot.Pred.Map.Prevalence( map.prev, build.sum)
 </w:p>
 ```
 
+# Development Notes
+
+Eds first R Markdown document. PDF is easy. Going big by sending it MS Word.
+
+Generates plots from existing data objects in the environment, and code chunks also do some modifying (e.g., scaling of the TSS).  
+
+Next step is to more clearly separate object production, saving, and loading, from figure production. Significant rebuild. While full reproducibility means code chunks should do all the work, not super practical at this point. 
+
+For Knitr to see the existing objects, need to run knitr in the gobal environment:   
+  Run rmarkdown::render("substrate_figures.Rmd") from console.
+
+
+Is it best to put captions in the code block, or in the text sections?   
+How to set plot dimensions for ggplot()? 
+How to set a page to landscape (doesn't seem possible for word).
+
+
+Details on using R Markdown  <http://rmarkdown.rstudio.com>  
+On defining a style to serve as a pagebreak  <https://datascienceplus.com/r-markdown-how-to-insert-page-breaks-in-a-ms-word-document/>  
+Guidance for landscape tables/pages <https://code-examples.net/en/q/18a6fd6>  
+Messing with figure sizing <https://sebastiansauer.github.io/figure_sizing_knitr/>  
+Some info on KNITR and environment <https://stackoverflow.com/questions/34029611/how-to-use-objects-from-global-environment-in-rstudio-markdown>
+
+From the definitive guide <https://bookdown.org/yihui/rmarkdown/>
+
+re figure sizing:
+#```{r, fig.width=10, fig.height=2, fig.fullwidth=TRUE}
+#par(mar = c(4, 4, .1, .2)); plot(sunspots)
+#```
