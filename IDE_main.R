@@ -24,7 +24,7 @@ rm(list=ls(all=T))  # Erase environment.
 
 #-- Load necessary packages and functions ... 
 source( "substrate_functions.R" )
-source( "depth_effect.R" )
+#source( "depth_effect.R" )
 source( "Plot_Functions.R" )
 
 #-- This will re-load all the data and re-build the RF models ... 
@@ -58,6 +58,11 @@ load( file.path( model.dir, 'buildResults_2020-06-25.RData' ))
 #build.results$WCVI.stats[1]
 
 
+#-------------------------------------------
+#  Load the predicted rasters and prevalences (map.pred) ... 
+load( file.path( model.dir, 'rasterMapObjects_2020-06-29.RData' ))
+
+
 #--------------------------------------------------------------------------
 #-- Part 3: Create data summaries and CSVs for Heat maps.
 
@@ -73,10 +78,12 @@ build.sum <- Summarize.Build( build.results )
 #--------------------------------------------------------------------------
 #---Part 4: Model resolution tests 
 
-#-- 4a: Test how the 100m model performs at the regions.
+#-- 4a: Test how the 100m model performs at the regional scale
+ 
+# First separate the Obs testing data by region. 
+test.regions <- Partition.Test.Data( point.data$Obs[ point.data$Obs$TestDat == 1, ] )
 
-test.regions <- Regional.Test.100m( point.data$Obs[ point.data$Obs$TestDat == 1, ] )
-#-- Write CSV of results showing that 100m model performance is NOT skewed by regions.
+# Test results tabulated in the RMD file.
 
 
 #------------------------------------------------------------------
@@ -90,8 +97,9 @@ test.regions <- Regional.Test.100m( point.data$Obs[ point.data$Obs$TestDat == 1,
 
 depth.results <- Models.Across.Ribbons( test.regions )
 
-# Do it gain with the longer list of ribbons.
+# Do it again with the longer list of ribbons.
 depth.results2 <- Models.Across.Ribbons2( test.regions )
+
 
 
 #--------------------------------------------------------------------
@@ -103,6 +111,7 @@ cor( depth.results[, -c(1:3)] )
 a <- lm( TSS ~ Model + Region + Ribbon + N + Imbalance, data = depth.results )
 summary(a)
 anova( a )
+
 
 
 #--------------------------------------------------------------------------
@@ -121,6 +130,45 @@ anova( a )
 
 IDE.results <- Do.Independent.Evaluation()
 
+
+#-- IDS test results across depth ribbons by region. 
+# Used to plot of Pontius stats 
+IDE.depths <- rbind(
+  cbind( 'IDS' = 'Dive', rbind( 
+    cbind( 'Region' = 'Coast', Model.Fit.IDS.By.Depth( 'dive', 'Coast' )),
+    cbind( 'Region' = 'HG',    Model.Fit.IDS.By.Depth( 'dive', 'HG' )),
+    cbind( 'Region' = 'NCC',   Model.Fit.IDS.By.Depth( 'dive', 'NCC' )) )
+  ),
+  cbind( 'IDS' = 'Cam', rbind( 
+    cbind( 'Region' = 'Coast', Model.Fit.IDS.By.Depth( 'cam', 'Coast' )),
+    cbind( 'Region' = 'HG',    Model.Fit.IDS.By.Depth( 'cam', 'HG' )),
+    cbind( 'Region' = 'NCC',   Model.Fit.IDS.By.Depth( 'cam', 'NCC' )) )
+  ),
+  cbind( 'IDS' = 'ROV', rbind( 
+    cbind( 'Region' = 'Coast', Model.Fit.IDS.By.Depth( 'ROV', 'Coast' )),
+    cbind( 'Region' = 'HG',    Model.Fit.IDS.By.Depth( 'ROV', 'HG' )),
+    cbind( 'Region' = 'NCC',   Model.Fit.IDS.By.Depth( 'ROV', 'NCC' )) )
+  )
+)
+
+
+#-- Assess BoP performance on IDS for 3(4) regions w sufficient data
+IDE.BoP <- rbind( 
+  Build.IDE.BoP.Results('HG_BoPs_v2.gdb',    'BoP18_merged_again'),
+  Build.IDE.BoP.Results('NCC_BoPs_v1.1.gdb', 'BoP18_merged')
+)  
+rownames( IDE.BoP ) <- NULL
+
+# Build.IDE.BoP.Results('QCSSOG_BoPs_v1.0.gdb', 'BoP18_merged')
+#--> Need to either separate the BoPs or select BoP pgons for each region. Ugh.
+
+
+
+#------------ rMarkdown separation complete to here ------------
+
+# IDE still a bit of a work in progress. 
+
+
 #--------------------------------------
 #-- Present some Initial IDE results ... 
 
@@ -133,7 +181,6 @@ IDE.results <- Do.Independent.Evaluation()
 # Use a predetermined collection of stats (see function)
 
 
-
 #-- 2) Look at class statistics by IDS ... User/producer accuracies by regions by IDS. 
 
 #-- Assemble the data ... 
@@ -144,22 +191,12 @@ y <- y[ y$Stat %in% c( 'User', 'Prod'), ]
 #-- FIX Stat levels to match earlier figure.  
 y <- mutate(y, Stat = factor(Stat, levels=c('User', 'Prod', 'PrevObs', 'PrevPred' )))
             
-
 # Tidy the data a bit  ... 
 colnames(y) <- c( 'Region', 'IDS', 'Stat', 'Rock', 'Mixed', 'Sand', 'Mud')
 rownames(y) <- NULL
 
 a <- IDS.Class.Stats.For.Regions( y, pal.cb2, sz = 25, lx=0.83, ly=0.75 )
 a
-
-
-
-#--- Pontius stats for Obs data: ribbon by region. 
-
-
-#--- Pontius stats for IDS data: ribbon by region. 
-
-
 
 
 
@@ -211,71 +248,6 @@ results.int <- rbind( results.int, x )
 # study area prediction to training data ... 
 
 
-#-------------------------------------------
-#  Load the predicted rasters and prevalences  ... 
-load( file.path( model.dir, 'rasterMapObjects_2020-05-21-1019.RData' ))
-
-#-------------------------------------------
-#  Or build some new ones here. TAKES HOURS!
-
-#- Somewhere to put the data ... 
-map.prev <- list()
-
-#- coastwide 
-a <- 'Coast'
-b <- rf.region.Coast
-a.stack <- Load.Predictors( paste0( predictor.dir, '/Coastwide' ) )
-
-# standardize var names and bathymetry sign
-names(a.stack)[1] <- 'bathy'
-a.stack$bathy <- a.stack$bathy * -1
-
-y <- Predict.Surface( a.stack, b, raster.dir, a, pal.map )
-map.prev <- c(map.prev, 'Coast' = y )
-
-#- HG
-a <- 'HG'
-b <- rf.region.HG
-a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
-y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
-map.prev <- c(map.prev, 'HG' = y )
-
-#- NCC
-a <- 'NCC'
-b <- rf.region.NCC
-a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
-y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
-map.prev <- c(map.prev, 'NCC' = y )
-
-#- WCVI
-a <- 'WCVI'
-b <- rf.region.WCVI
-a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
-y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
-map.prev <- c(map.prev, 'WCVI' = y )
-
-#- QCS
-a <- 'QCS'
-b <- rf.region.QCS
-a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
-y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
-map.prev <- c(map.prev, 'QCS' = y )
-
-#- SOG
-a <- 'SOG'
-b <- rf.region.SOG
-a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
-y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
-map.prev <- c(map.prev, 'SOG' = y )
-
-
-#-- SAVE the prevalence and the predicted objects ... 
-
-#Build a time stamp ... 
-x <- substr( endtime, 1, 16); x <- gsub(":", "", x); x <- gsub(" ", "-", x)
-
-save( map.prev,
-      file = file.path( model.dir, paste0('rasterMapObjects_', x, '.RData')) )
 
 
 #----- Plot the Study Area prevalence results ------
@@ -287,32 +259,5 @@ save( map.prev,
 
 #---- Manual plotting of predicted tifs ----
 #  UNDER DEVELOPMENT - Saving and plotting predictions has become a bit of a pain. 
-
-x <- pal.map
-
-a <- 'QCS'
-#y <- unlist( map.prev$HG1 )
-
-b <- paste0( raster.dir, '/',a, '_classified_substrate.tif')
-y <- raster::raster( b )
-str(y)
-
-png(file=b,
-    height = 7, width = 6, units = "in", res = 400)
-raster::plot(y, maxpixels=5000000, col = x, legend=FALSE,
-             xlab = "Easting", ylab = "Northing", cex.axis = .5, cex.lab = .75)
-legend(x = "bottomleft",
-       legend =  c("Rock", "Mixed", "Sand", "Mud"), fill = x, title=NA, bg = NA, box.col = NA)
-
-dev.off()
-
-
-# How to use the string in the list naming? ugh. i.e., 
-map.prev <- c(map.prev, eval( parse(paste0( a, '=9876' )) ))
-
-x[[2]]
-map.prev
-
-
 
 #-- FIN.

@@ -148,6 +148,31 @@ Results.Row <- function( testModel, testData, mant = 3 ){
 }
 
 
+#-- As above, but for paired list of Obs/Pred factors. 
+Results.Row2 <- function( obs, pred, mant = 3 ){
+  
+  y <- caret::confusionMatrix( pred, obs )
+  z <- data.frame(y$byClass)
+  prev <- Prev.Balance( summary(obs) / sum( summary(obs)) )
+  
+  out1 <- data.frame( 
+    "N"         = length( obs ),
+    "Imbalance" = round( prev, mant ), 
+    "TSS"       = TSS.Calc( y$table, TRUE ),
+    #    "Kappa"     = round( as.numeric( y$overall[ 'Kappa' ]), mant ),
+    "Accuracy"  = round( as.numeric( y$overall[ 'Accuracy' ]), mant ),
+    'TNRWtd'    = round( sum( z$Specificity * z$Prevalence ), mant ),
+    round( diffr.Stats( y$table )/length(obs), mant ) #returns some pre-named, Pontius stuff.
+  )
+  out2 <- data.frame( 
+    "User"  = round( diag(y$table) / rowSums(y$table), mant ), 
+    "Prod"  = round( diag(y$table) / colSums(y$table), mant ),
+    "PrevObs"  = round( as.vector( table( obs )) ),
+    "PrevPred" = round( as.vector( table( pred )) ))
+  
+  return( list( 'Integrated' = out1, 'PerClass' = t(out2) ))
+}
+
 # w <- obs.20mIV$HG[ obs.20mIV$HG$TestDat ==1, ]
 # Results.Row( rf.region.HG, w )
 # 
@@ -167,7 +192,8 @@ Results.Row <- function( testModel, testData, mant = 3 ){
 #   then substracts this from the diagonal values, and reports the 
 #   sum of the diagonal values. 
 # Returns: A single TSS statistic for the entire table.
-# Takes:   a caret contingency table
+# Takes:  A caret contingency table
+#         A boolean to re-scale TSS on [0,1] for comparability. 
 # Assumes: 4x4 matrix
 # Notes:   Correcting for chance success reduces the sample size on 
 #   the diagonal ... 
@@ -436,7 +462,7 @@ Do.Independent.Evaluation <- function( results=NULL ){
   results.class <- NULL
   
   # Dive Data - pull the regional data together  ... 
-  x.test <- Assemble.Coast.Test( dive.20mIV )
+  x.test <- rbind( dive.20mIV$HG, dive.20mIV$NCC, dive.20mIV$QCS, dive.20mIV$WCVI, dive.20mIV$SOG )
   
   #-- Build the table piece ... 
   compare.what <- data.frame( 'Region' = 'Coast', 'IDS' = 'Dive' )
@@ -449,7 +475,7 @@ Do.Independent.Evaluation <- function( results=NULL ){
   print( 'Dive test done ...')
   
   # Repeat for the Cam IDS  ... 
-  x.test <- Assemble.Coast.Test( cam.20mIV )
+  x.test <- rbind( cam.20mIV$HG, cam.20mIV$NCC, cam.20mIV$QCS, cam.20mIV$WCVI, cam.20mIV$SOG )
   
   #-- Build the table piece ... 
   compare.what <- data.frame( 'Region' = 'Coast', 'IDS' = 'Cam' )
@@ -462,7 +488,7 @@ Do.Independent.Evaluation <- function( results=NULL ){
   print( 'Cam test done ...')
   
     # Repeat for the ROV IDS  ... 
-  x.test <- Assemble.Coast.Test( ROV.20mIV )
+  x.test <- rbind( ROV.20mIV$HG, ROV.20mIV$NCC, ROV.20mIV$QCS, ROV.20mIV$WCVI, ROV.20mIV$SOG )
   
   #-- Build the table piece ... 
   compare.what <- data.frame( 'Region' = 'Coast', 'IDS' = 'ROV' )
@@ -638,7 +664,6 @@ Rename.100m.Preds <- function( df ){
 
 #---------------------------------------------
 # Partition input points according to regions.
-# Called by: Regional.Test.100m()
 # Returns: List of point dataframes, one for each region
 # Notes:   Region names and source features hard-coded in function
 Partition.Test.Data <- function( pts ){
@@ -650,7 +675,7 @@ Partition.Test.Data <- function( pts ){
   
   x <- pts@data
   x$BType4 <- as.factor( x$BType4 )
-  #-- Return corrected coast  first ... 
+  #-- Return corrected coast attributes first ... 
   y <- x[ , !colnames(x) %in% drop.list ]
   y <- Rename.100m.Preds( y )
   out <- c( out, list( 'Coast' = y) )
@@ -807,44 +832,51 @@ split.Obs.Data <- function( obs, seed, train.size ){
 }
 
 
-#--------------------------------------------------------
-# Pulls all the ID set data together for coastal tests ... 
-# USES train.data as a global variable. 
-Assemble.NCoast.Test <- function( indat ){
-  x <- rbind( indat[['NCC']], indat[['HG']] )
-  return( x )
-}
-
-
-#--------------------------------------------------------
-# Test how  the 100m model performs at the regions.
+#---------------------------------------------------------------
+# Test how the 100m model performs at the regions using Obs data
 # Requires patitioning of the Obs testing data with 100 m predictors. 
 # Use the spatial info on the Obs points to separate them using the region shape file.
-Regional.Test.100m <- function( obsTest ){
-  
-  tr <- Partition.Test.Data( point.data$Obs[ point.data$Obs$TestDat == 1, ] )
-  #length( tr )
-  #names( tr )
-  #names( tr$NCC )
-  #str( tr$NCC )
-  
-  x <- rbind( 
-    cbind( 'Region' = 'Coast', Results.Row( rf.region.Coast, tr$Coast )$Integrated), 
-    cbind( 'Region' = 'HG', Results.Row( rf.region.Coast, tr$HG )$Integrated), 
-    cbind( 'Region' = 'NCC', Results.Row( rf.region.Coast, tr$NCC )$Integrated),
-    cbind( 'Region' = 'WVVI', Results.Row( rf.region.Coast, tr$WCVI )$Integrated), 
-    cbind( 'Region' = 'QCS', Results.Row( rf.region.Coast, tr$QCS )$Integrated),
-    cbind( 'Region' = 'SOG', Results.Row( rf.region.Coast, tr$SOG )$Integrated)
-  )
-  
-  out.file <- '100m_Performance_Regionally.csv'
-  write.csv( x, file = file.path(results.dir, out.file) )
-  
-  return( tr )
-}
+
+# 2020/06/29: Partition now explicitly called in IDE_Main
+# The table building moved to RMD file. 
+
+# Regional.Test.100m <- function( obsTest ){
+#   
+#   tr <- Partition.Test.Data( point.data$Obs[ point.data$Obs$TestDat == 1, ] )
+#   #length( tr )
+#   #names( tr )
+#   #names( tr$NCC )
+#   #str( tr$NCC )
+#   
+#   x <- rbind( 
+#     cbind( 'Region' = 'Coast', Results.Row( rf.region.Coast, tr$Coast )$Integrated), 
+#     cbind( 'Region' = 'HG', Results.Row( rf.region.Coast, tr$HG )$Integrated), 
+#     cbind( 'Region' = 'NCC', Results.Row( rf.region.Coast, tr$NCC )$Integrated),
+#     cbind( 'Region' = 'WVVI', Results.Row( rf.region.Coast, tr$WCVI )$Integrated), 
+#     cbind( 'Region' = 'QCS', Results.Row( rf.region.Coast, tr$QCS )$Integrated),
+#     cbind( 'Region' = 'SOG', Results.Row( rf.region.Coast, tr$SOG )$Integrated)
+#   )
+#   
+#   out.file <- '100m_Performance_Regionally.csv'
+#   write.csv( x, file = file.path(results.dir, out.file) )
+#   
+#   return( tr )
+# }
 
 
 
+#============== Prep summaries for evaluation across depth ribbons ==============
+
+# Define the depth classes ... 
+#z.breaks <- c( -5000, -50, -20, -10, -5, 0, 1000)
+z.breaks <- c( -1000, 0, 5, 10, 20, 50, 5000)
+z.ribs <- c('ITD', '0-5', '5-10', '10-20', '20-50', '50+')
+
+#-- Part 1) Using Obs data. 
+
+#-----------------------------------
+#-- Function builds table of results by region and model type, across depth ribbons
+# Uses following 2 functions as helpers. 
 Models.Across.Ribbons <- function( tr ){
   
   x <- rbind(
@@ -879,6 +911,72 @@ Models.Across.Ribbons <- function( tr ){
   return( dr )
 }
 
+#-----------------------------------
+# How does the 100 m model perform (using withheld obs) by depth within region?
+# Model is rf.region.coast
+# GLOBAL vars: z.breaks, z.ribs, rf models, obs.20mIV
+# Returns a row of test results.
+Coast.Fit.By.Region.By.Depth <- function( tdat, mant = 3 ){
+  
+  rf <- rf.region.Coast
+  
+  tdat$zClass <- as.factor( findInterval( tdat$bathy, z.breaks) )
+  
+  results <- NULL  
+  # loop thru each level, calculating performance of data subset 
+  for (k in levels( tdat$zClass ) ){
+    x.sub <- tdat[ tdat$zClass == k, ]
+    
+    # build the row label ... 
+    compare.what <- data.frame( 'Ribbon' = z.ribs[ as.numeric(k) ], 
+                                'meanZ' = round( mean( x.sub$bathy ), mant ) )
+    
+    # make the results ... 
+    w <- Results.Row( rf, x.sub )
+    x <- cbind( compare.what, w$Integrated )
+    results <- rbind( results, x ) 
+  }
+  return (results)
+}
+
+#-----------------------------------
+# How do the 20 m models perform (using withheld obs) by depth within region?
+# GLOBAL vars: z.breaks, z.ribs, rf models, obs.20mIV
+# Returns a row of test results ... 
+Model.Fit.Obs.By.Depth <- function( regName, mant = 3 ){
+  
+  rf <- eval(parse( text=paste0( "rf.region.", regName ) ))
+  
+  if (regName == 'Coast') {
+    tdat <- obs.100mIV
+  } else
+    tdat <- eval(parse( text=paste0( 'obs.20mIV$', regName ) ))
+  
+  tdat <- tdat[ tdat$TestDat == 1, ]
+  tdat$zClass <- as.factor( findInterval( tdat$bathy, z.breaks) )
+  
+  results <- NULL  
+  # loop thru each level, calculating performance of data subset 
+  for (k in levels( tdat$zClass ) ){
+    x.sub <- tdat[ tdat$zClass == k, ]
+    
+    # build the row label ... 
+    compare.what <- data.frame( 'Ribbon' = z.ribs[ as.numeric(k) ], 
+                                'meanZ' = round( mean( x.sub$bathy ), mant ) )
+    
+    # make the results ... 
+    w <- Results.Row( rf, x.sub )
+    x <- cbind( compare.what, w$Integrated )
+    results <- rbind( results, x ) 
+  }
+  return (results)
+}
+
+
+#========== three functions as above but using extended depth ribbons ===========
+
+z.breaks2 <- c( -1000, 0, 5, 10, 20, 50, 100, 200, 5000)
+z.ribs2 <- c('ITD', '0-5', '5-10', '10-20', '20-50', '50-100', '100-200', '200+')
 
 Models.Across.Ribbons2 <- function( tr ){
   
@@ -913,6 +1011,169 @@ Models.Across.Ribbons2 <- function( tr ){
 return( dr )
 }
 
+Coast.Fit.By.Region.By.Depth2 <- function( tdat, mant = 3 ){
+  
+  rf <- rf.region.Coast
+  
+  tdat$zClass <- as.factor( findInterval( tdat$bathy, z.breaks2) )
+  
+  results <- NULL  
+  # loop thru each level, calculating performance of data subset 
+  for (k in levels( tdat$zClass ) ){
+    x.sub <- tdat[ tdat$zClass == k, ]
+    
+    # build the row label ... 
+    compare.what <- data.frame( 'Ribbon' = z.ribs2[ as.numeric(k) ], 
+                                'meanZ' = round( mean( x.sub$bathy ), mant ) )
+    
+    # make the results ... 
+    w <- Results.Row( rf, x.sub )
+    x <- cbind( compare.what, w$Integrated )
+    results <- rbind( results, x ) 
+  }
+  return (results)
+}
+
+Model.Fit.Obs.By.Depth2 <- function( regName, mant = 3 ){
+  
+  rf <- eval(parse( text=paste0( "rf.region.", regName ) ))
+  
+  if (regName == 'Coast') {
+    tdat <- obs.100mIV
+  } else
+    tdat <- eval(parse( text=paste0( 'obs.20mIV$', regName ) ))
+  
+  tdat <- tdat[ tdat$TestDat == 1, ]
+  tdat$zClass <- as.factor( findInterval( tdat$bathy, z.breaks2) )
+  
+  results <- NULL  
+  # loop thru each level, calculating performance of data subset 
+  for (k in levels( tdat$zClass ) ){
+    x.sub <- tdat[ tdat$zClass == k, ]
+    
+    # build the row label ... 
+    compare.what <- data.frame( 'Ribbon' = z.ribs2[ as.numeric(k) ], 
+                                'meanZ' = round( mean( x.sub$bathy ), mant ) )
+    
+    # make the results ... 
+    w <- Results.Row( rf, x.sub )
+    x <- cbind( compare.what, w$Integrated )
+    results <- rbind( results, x ) 
+  }
+  return (results)
+}
+
+
+#-- Part 2 - Test IDS across regions and depths ------------
+
+#-----------------------------------------------------------
+# Test specific IDS for particular region, by depth ribbon
+# Returns: df of results.
+Model.Fit.IDS.By.Depth <- function( idsName, regName, mant = 3 ){
+  
+  rf <- eval(parse( text=paste0( "rf.region.", regName ) ))
+  
+  if (regName == 'Coast') {
+    tdat <- NULL
+    for (x in bioregions) {
+      tdat <- rbind( tdat, 
+                     eval(parse( text=paste0( idsName, '.20mIV$', x ) )))
+    }
+  } else
+    tdat <- eval(parse( text=paste0( idsName, '.20mIV$', regName ) ))
+  
+  tdat$zClass <- as.factor( findInterval( tdat$bathy, z.breaks) )
+  
+  results <- NULL  
+  # loop thru each level, calculating performance of data subset 
+  for (k in levels( tdat$zClass ) ){
+    x.sub <- tdat[ tdat$zClass == k, ]
+    
+    # build the row label ... 
+    compare.what <- data.frame( 'Ribbon' = z.ribs[ as.numeric(k) ], 
+                                'meanZ' = round( mean( x.sub$bathy ), mant ) )
+    
+    # make the results ... 
+    w <- Results.Row( rf, x.sub )
+    x <- cbind( compare.what, w$Integrated )
+    results <- rbind( results, x ) 
+  }
+  return (results)
+}
+
+
+#-----------------------------------------------------
+# Test how regional BoP models perform against the IDS
+# models Input: BoP geodatabase and layer
+# Requires: IDS point data to exist ... 
+# Returns table of how well specified BoP fc predicted all IDS
+Build.IDE.BoP.Results <- function( bop, lyr ){
+  
+  # load the regional bottom patches ... 
+  bp <- file.path("d:/spacedata2019/BoPs/Delivered/", bop)
+  bops <- readOGR(dsn = bp,layer = lyr )
+  
+  # load the region file to pull the IDS points ... 
+  pgons <- readOGR( file.path(source.dir, "/regions/BC_coast_regions.shp") )
+  
+  # Get name of region pgon ... this call took 30 min to put together! :\
+  idx <- which( bioregions %in% strsplit(bop, '_')[[1]][1] )
+  nm <- pgons$Region[order( pgons$Region )][ idx ]
+  
+  bop.IDE <- NULL
+  for (i in c('Dive', 'Cam')) {
+    print( i )
+    
+    # Select just the IDS points in the region.
+    #[ Not working!! ]
+    #length( point.data$Dive )
+    
+    #x <- pts[ pgons[ pgons$Region == "Haida Gwaii",], ]@data
+    
+    rpts <- point.data[[ i ]][ pgons[ pgons$Region == nm,], ]
+    
+    # Ensure projection of BoPs agree with points (can be subtly different) ...
+    crs( bops ) <- crs( rpts )
+    
+    # Now pull BTypes to the points 
+    y <- over( rpts, bops[ c('BType1', 'BType2') ] )
+    
+    # drop the spatial deets and combine obs with BoP pred 
+    z <- cbind(rpts@data, y)
+    
+    # Transform BTypes into new BType comparable w RMSM
+    z$BType <- with(z, ifelse( BType1 != 3, BType1, 
+                               ifelse( BType2 == 'a', 3, 4))
+    )
+    
+    z$RMSM <- as.factor( z$RMSM )
+    z$BType <- as.factor( z$BType )
+    
+    #print( caret::confusionMatrix( z$RMSM, z$BType )$table )
+    
+    bop.IDE <- rbind( bop.IDE, 
+                      cbind( 'IDS' = i, 'Region' = bioregions[idx],
+                             Results.Row2( z$RMSM, z$BType )$Integrated ))
+  }
+  return( bop.IDE )
+}
+#rm( 'bop','lyr','bp','bops','pgons','idx','nm','i','rpts','y','z' )
+
+
+#-----------------------------------
+# Build a table of IDE results. 
+# Requires: IDE.Results
+IDE.Results.Table <- function() {
+  
+  x <- IDE.results$Integrated
+  y <- rbind( x[x$IDS=='Dive',], 
+              x[x$IDS=='Cam',],
+              x[x$IDS=='ROV',]
+  )
+  z <- cbind( 'IDS'=y$IDS, y[,-2] )
+  rownames( z ) <- NULL
+  return( z )  
+}
 
 
 

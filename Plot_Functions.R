@@ -60,10 +60,8 @@ pal.cb3 <- pal.cb8[ c(3, 5, 7) ]
 pal.cb4 <- brewer.pal(4, 'Dark2' )
 #show.pal( pal.cb4 )
 
-
 pal.heat.10 <- brewer.pal(10, "RdYlBu")
 pal.heat.11 <- brewer.pal(11, "RdYlBu")
-
 
 #-- Old palettes (Coles and PNW) dropped in favour of CB above.
 # pal.cole <- c("#c6c6c6", "#c2f3f9", "#7fc9d8")
@@ -72,8 +70,7 @@ pal.heat.11 <- brewer.pal(11, "RdYlBu")
 #devtools::install_github("jakelawlor/PNWColors") 
 #library(PNWColors)
 
-
-#--- Could place with colours but ... No. 
+#--- Could play with colours using the following code ... but No. 
 # Use luminance=45 instead of default 65?
 # Reduced luminance makes colours darker. Wld like that I think.
 
@@ -149,7 +146,7 @@ show.pal <- function( aa ){
 #========================== PLOTTING FUNCTIONS ==========================
 
 #-------------------------------
-# Heat maps of the build tables.
+#-- Heat maps of the build tables.
 Plot.Build.Class.Stats <- function( df, pal, w = 800, h = 600 ) {
   
   # 1) User accuracy:
@@ -343,8 +340,6 @@ Plot.Class.Stats.For.Regions <- function( dat.table, apal){
 #--- TSS by Depth class withing Regions --- includes 20 and 100 m models.
 Plot.TSS.By.Depth.For.Regions <- function( dat.table, apal){
 
-    #foo <- melt( dat.table )
-  
   a <- dat.table  %>%
     # Adjust levels for correct faceting ... 
     mutate(Region = factor(Region, levels=c("HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
@@ -383,9 +378,32 @@ Plot.TSS.By.Depth.For.Regions2 <- function( dat.table, apal){
 }
 
 
+Plot.Pontius.By.Depth.For.Regions <- function( df, apal, sz=20 ){
+  
+  y <- df[ , c('Region', 'Ribbon', 'Accuracy','Shift', 'Exchange', 'Quantity' )]
+  y <- melt(y, id.vars = c('Ribbon','Region') )
+  
+  a <- ggplot(y, aes(x=Ribbon, y=value, fill=forcats::fct_rev(variable), order=desc(variable) )) +
+  geom_bar(stat="identity") +
+  labs( y = NULL, legend = 'Metric' ) +
+  facet_grid(. ~ Region) +
+    
+  theme( text = element_text( size=sz ),
+         axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.4)
+  ) +
+    
+  scale_fill_manual( values = apal,
+                     name = 'Metrics')
+  
+  return( a )
+}
+
+
+
 #-------------- FACETED IDE Statistics --------------------
 
-#--- Simple facet of the sample size by region for context. ---
+#--------------------------------------------------------
+#-- Simple facet of the sample size by region for context.
 Plot.Obs.By.IDS.For.Regions <- function( df, apal, sz = 20, lx=0, ly=0 ){
   
   foo <- melt( df, id.vars = c('Region','IDS') )
@@ -417,10 +435,10 @@ Plot.Obs.By.IDS.For.Regions <- function( df, apal, sz = 20, lx=0, ly=0 ){
   return( a )
 }
 
-
-#--- Integrated Statistics by IDS faceted by Region ---
-#   Statistics are hard-coded as list of 3.
-#   Params: sz used to set text size; lx, ly set position of legend
+#-----------------------------------------------------
+#-- Integrated Statistics by IDS faceted by Region
+# Statistics are hard-coded as list of 3.
+# Params: sz used to set text size; lx, ly set position of legend
 Plot.Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
   
   x <- df[, c( 'Region', 'IDS', 'TSS', 'Accuracy', 'TNRWtd' )]
@@ -450,7 +468,8 @@ Plot.Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
 }
 
 
-#--- Producer and User stats by Class for Regions
+#------------------------------------------------
+#-- Producer and User stats by Class for Regions
 #   NEEDS UPDATED DATA TABLE ... 
 IDS.Class.Stats.For.Regions  <- function( df, apal, sz=20, lx=0, ly=0 ){
 
@@ -490,40 +509,48 @@ IDS.Class.Stats.For.Regions  <- function( df, apal, sz=20, lx=0, ly=0 ){
   #   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 
+#-------------------------------
 #-- Map prevalence compared to model test prevalence
+#rm('maprev', 'bs', 'a', 'b', 'c', 'y')
 Plot.Pred.Map.Prevalence <- function( maprev, bs, pal){
 # TAKES: maprev: Map prevalence saved as part of study area predictions
 #        bs: Summary of the build prevalences
   
   a <- rbind( maprev$Coast2, maprev$HG2, maprev$NCC2, maprev$WCVI2, maprev$QCS2, maprev$SOG2 )
   colnames( a ) <- c('Hard','Mixed','Sand','Mud')
-  a <- round( a/100, 2)
+  a <- a/100
   a <- cbind( Region = c('Coast','HG','NCC','WCVI','QCS','SOG'), data.frame(a) )
   a <- cbind( Stat = 'Map', a )
   
+  # Pull prediction results from build results
   b <- bs$build.results.ClassPrev[ bs$build.results.ClassPrev$Stat == 'Pred',]
-  b <- cbind( b[ , c(1,2)],
-              round( b[ , c(-1,-2)] / rowSums(b[ , c(-1,-2)]), 2) )
-  
+  b <- cbind( b[ , c(1,2)], 
+              b[ , c(-1,-2)] / rowSums(b[ , c(-1,-2)]) )
+
   c <- rbind(a, b)
-  
+  levels(c$Stat) <- c('Map','Pred', 'Points')
+  c$Stat[ c$Stat == 'Pred'] <- 'Points'
   y <- melt(c, id.vars = c('Region','Stat') )
-  y <- mutate(y, Scale = factor(Stat, levels=c("Pred", "Map")))
+  y <- mutate(y, Scale = factor(Stat, levels=c("Points", "Map")))
   
   ggplot(y, aes(x=Scale, y=value, fill=variable, order=desc(variable) )) +
     geom_bar(stat="identity") +
     facet_grid(. ~ Region) +
-    scale_fill_manual( values = pal,
+    scale_fill_manual( values = pal.RMSM,
                        name = 'Class') +
     labs( y = NULL, legend = 'Prevalence' ) +
     theme( text = element_text( size=20 ),
+           axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.4)
     )
 }
 
 
+
+
+#-----------------------------------------------------------------
 Plot.Pontius.By.IDS.For.Regions <- function( df, apal, sz=20 ){
   
-  y <- melt(df, id.vars = c('Region','IDS') )
+  y <- melt(df, id.vars = c('IDS', 'Region') )
   
   a <- y %>%
   ggplot(aes(x=IDS, y=value, fill=forcats::fct_rev(variable), order=desc(variable) )) +
@@ -542,16 +569,16 @@ Plot.Pontius.By.IDS.For.Regions <- function( df, apal, sz=20 ){
 }
 
 
-
+#------------------------------------------------------------------------
 Plot.Pontius.By.IDS.Depth.For.Regions <- function( df, apal, sz=20 ){
   
-  y <- melt(df, id.vars = c('Region','IDS') )
+  y <- melt(df, id.vars = c('Ribbon','IDS') )
   
   a <- y %>%
-    ggplot(aes(x=IDS, y=value, fill=forcats::fct_rev(variable), order=desc(variable) )) +
+    ggplot(aes(x=Ribbon, y=value, fill=forcats::fct_rev(variable), order=desc(variable) )) +
     geom_bar(stat="identity") +
     labs( y = NULL, legend = 'Metric' ) +
-    facet_grid(. ~ Region) +
+    facet_grid(. ~ IDS) +
     
     theme( text = element_text( size=sz ),
            axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.4)
@@ -562,6 +589,9 @@ Plot.Pontius.By.IDS.Depth.For.Regions <- function( df, apal, sz=20 ){
   
   return( a )
 }
+
+
+
 
 
 #--- Integrated Statistics by IDS faceted by Region V.2 ---

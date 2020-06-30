@@ -236,4 +236,69 @@ save( rf.region.Coast, rf.region.HG, rf.region.NCC,
 save( build.results, file = file.path( model.dir, paste0('buildResults_', x, '.RData')) )
 
 
+
+#-------------------------------------------
+#  Build model predictions. TAKES HOURS!
+
+#- Somewhere to put the data ... 
+map.prev <- list()
+
+#- coastwide 
+a <- 'Coast'
+b <- rf.region.Coast
+a.stack <- Load.Predictors( paste0( predictor.dir, '/Coastwide' ) )
+
+# standardize var names and bathymetry sign
+names(a.stack)[1] <- 'bathy'
+a.stack$bathy <- a.stack$bathy * -1
+
+y <- Predict.Surface( a.stack, b, raster.dir, a, pal.map )
+map.prev <- c(map.prev, 'Coast' = y )
+
+#- HG
+a <- 'HG'
+b <- rf.region.HG
+a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
+map.prev <- c(map.prev, 'HG' = y )
+
+#- NCC
+a <- 'NCC'
+b <- rf.region.NCC
+a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
+map.prev <- c(map.prev, 'NCC' = y )
+
+#- WCVI
+a <- 'WCVI'
+b <- rf.region.WCVI
+a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
+map.prev <- c(map.prev, 'WCVI' = y )
+
+#- QCS
+a <- 'QCS'
+b <- rf.region.QCS
+a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
+map.prev <- c(map.prev, 'QCS' = y )
+
+#- SOG
+a <- 'SOG'
+b <- rf.region.SOG
+a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
+map.prev <- c(map.prev, 'SOG' = y )
+
+
+#-- SAVE the prevalence and the predicted objects ... 
+
+#Build a date stamp ... 
+endtime <- Sys.time()
+x <- substr( endtime, 1, 10)
+
+save( map.prev,
+      file = file.path( model.dir, paste0('rasterMapObjects_', x, '.RData')) )
+
+
 ### Fin.

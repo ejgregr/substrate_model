@@ -15,7 +15,13 @@ R version 3.6.2 x64
 
 UPDATES
 
-June 2020 
+June 2020 (b)
+Added rMarkdown file; moved all plotting here to organize figures and tables. 
+Split IDE_Main.R into a control script and a data and summary building script (build_substrate.R)
+Subsumed depth_effects.R script into the main function script (substrate_functions.R) and the markdown file. 
+More plots added; Palettes turned CB friendly and standardized.
+
+June 2020 (a)
 Getting close to finalizing figures. Integrated code from Cole to generate and plot predictions. Having trouble plotting these from the saved results. Other than that, just need to adjust/standardize colour palettes, and tweak some plots.
 
 May 2020 

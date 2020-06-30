@@ -1,11 +1,11 @@
 ---
 title: "Substrate Tables and Figures"
 author: "Edward Gregr"
-date: "6/17/2020"
+date: "6/29/2020"
 output: word_document
 ---
 
-```{r setup, include=FALSE}
+```{r Setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(fig.width=12, fig.height=8) 
 
@@ -18,24 +18,15 @@ Since the meeting on 2020/06/18:
     Obs/Pred and Model/Map pairs could have different (but consistent colours)
     
 - TSS difference done for depth classes
+- TSS scaled on all plots and tables
 
 TO DO:  
 - Create new Suppl. materials section.   
-
-Table X (Manually built): Results from density comparison (TSS not corrected).  
-Include regional models. Table or figure? 
-
-Density	N	Imbalance	OOB	TSS	Accuracy	TNRWtd	Quantity	Exchange	Shift
-Low	27282	0.123	0.295	0.565	0.684	0.871	0.046	0.257	0.013
-High	38774	0.205	0.295	0.574	0.713	0.846	0.037	0.243	0.006
-
-
-Eds comments:  
-Results are a bit surprising. Thought the difference would be larger. Interesting that dense areas are also more out of balance, but the Quantity error is nevertheless lower.   
+- Need decision re density comparison. Necessary? Its conflated with depth. Does this matter? 
 
 Worth doing by Region? How best to structure? (e.g., pick an earlier figure as a template?).
 
-Group interpretation:   
+Group interpretation (2020/06/18):   
 - Higher dens sampling areas closer to shore, and more heterogeneity close to shore. Hi dens required to capture this hetro, and so these areas better captured  
 
 - High density areas more heterogeneous, this thought to potentially confuse the model, leading to reduced accuracy.   
@@ -43,6 +34,9 @@ Group interpretation:
 To Do: Revisit with top/bottom 25%  
 
 Two parts: Density of points has higher imbalance ? but we are not dealing with complexity of the coastline, which we would see, perhaps if we did it by region.   
+
+- Pontius has different names for User/Producer accuracies (commission/omission rates)  
+Need to standardize on the best stats terminology (Joanne/Ed to work on this)  
 
 
 ```{=openxml}
@@ -130,15 +124,15 @@ Do the models predict better in areas of high source data density?
 ```
 
 
-## Tables 
+# Tables 
 
-Main results table describes build.   
+Main results table summarizes build statistics.   
 
 ```{r Build_Tables, echo=FALSE}
 library( knitr )
 
 #-- Main statistics don't make a very nice bar plot. Report as table. 
-T.cap <- "Table 1: Summary of model results by region." 
+T.cap <- "Table 1: Summary of model build results." 
 kable( build.sum$build.results.Integrated, digits=2, caption = T.cap )
 
 
@@ -146,10 +140,42 @@ kable( build.sum$build.results.Integrated, digits=2, caption = T.cap )
 # Will it be easier to format Caption OUTSIDE w pandoc or INSIDE w kable?
 # digits will need to be a vector if you want to use it (cuz N)
 
-foo <- read.csv( 'C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/100m_Performance_Regionally.csv' )
+# Create table of how 100 m coastal model predicts at regiona scale. 
+# REQUIRES test.regions to exist. 
+foo <- rbind( 
+    cbind( 'Region' = 'Coast', Results.Row( rf.region.Coast, test.regions$Coast )$Integrated), 
+    cbind( 'Region' = 'HG', Results.Row( rf.region.Coast,    test.regions$HG )$Integrated), 
+    cbind( 'Region' = 'NCC', Results.Row( rf.region.Coast,   test.regions$NCC )$Integrated),
+    cbind( 'Region' = 'WVVI', Results.Row( rf.region.Coast,  test.regions$WCVI )$Integrated), 
+    cbind( 'Region' = 'QCS', Results.Row( rf.region.Coast,   test.regions$QCS )$Integrated),
+    cbind( 'Region' = 'SOG', Results.Row( rf.region.Coast,   test.regions$SOG )$Integrated)
+  )
+rownames( foo ) <- NULL
 
-T.cap <- "Table 2: Summary of 100 m model performance by region, using Obs testing at 20 m, by region." 
+T.cap <- "Table 2: Performance of the 100 m model by region." 
 kable( foo, digits=2, caption = T.cap )
+```   
+   
+NOTES: Table 2 sample size is different from Table 1 because Obs data are separated using regional shape file, whereas in Table 1 points are selected based on regional, 20m rasters.   
+
+
+Table 2 shows that 100 m model performance is not skewed towards any particular region. That is, it doesn't fit the witheld data any better in one region over another.  
+
+Reasons for thinking processes not stationary: SOG = muddy, NCC = Fjords, WCVI/HG exposed   
+
+Quantity surprisingly low. Exchange potentially driven by Mixed. Can we understand this by looking at class-specific metrics?  
+
+
+
+```{r IDE_Tables, echo=FALSE}
+library( knitr )
+
+T.cap <- "Table 3: Performance of each model for each independent data set." 
+kable( IDE.Results.Table(), digits=2, caption = T.cap )
+
+
+T.cap <- "Table 4: Performance of bottom patch models for regions with large IDS samples." 
+kable( IDE.BoP, digits=2, caption = T.cap )
 
 # Build ANOVA from depth.results argument ... 
 
@@ -162,26 +188,17 @@ kable( foo, digits=2, caption = T.cap )
 # summary(a)
 # anova( a )
 
-```
+```   
 
-
-Table 2 shows that 100 m model performance is not skewed towards any particular region. That is, it doesn't fit the witheld data any better in one region over another. 
-
-Reasons for thinking processes not stationary: SOG = muddy, NCC = Fjords, WCVI/HG exposed  
-
-Quantity surprisingly low. Exchange potentially driven by Mixed. Can we understand this by looking at class-specific metrics?  
-
-
-
-Include table for IDS results (which ones?)  
-
-Defer building ANOVA table until writing mostly done  
+NOTES:  
+- Defer building ANOVA table until writing mostly done  
 
 
 
 
-## Figures - Part 1: Summary of model building
+# Figures - Part 1: Summary of model building
 
+## Heatmaps
 ```{r Build_Heatmaps, echo=FALSE}
 
 #--- Heatmaps (tigures!) of build stats as png files from above csv files.
@@ -201,7 +218,7 @@ library( superheat)
 ![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/heat_ProducerAccuracy_Build.png)
 ![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/heat_UserAccuracy_Build.png)
 
-**Figure 1a/b: Heatmaps of Class-statistics (User/Producer) across models**  
+**Figure 1a/b: Heatmaps of class-statistics (User/Producer) across models**  
 
 ```{=openxml}
 # Inserting a word page break ... 
@@ -215,14 +232,13 @@ library( superheat)
 
 ![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/heat_VariableImportance_Build.png){ fig.fullwidth=TRUE }
 
-**Figure 2: Heatmap of Variable importance across models**  
+**Figure 2: Heatmap of variable importance across models**  
 
 Importance is measured as the proportion of each predictor's contribution to each individual model, relative to the predticor with the maximum predictive power. (p/max(p)).  
 
 NA indicates that Fetch was not used as a predictor for the Coast model.  
 
 Also note that while there is a rank order, some of the predictors are very similar, e.g., NC has 4 predictors with virtually equal model contribution scores (0.5 and 0.51).  
-
 
 
 ```{=openxml}
@@ -241,10 +257,11 @@ Also note that while there is a rank order, some of the predictors are very simi
 #-- Prevalence plots (obs & predicted) for build (testing partition), faceted by Region
 Plot.Obs.Pred.Prevalence.Build( build.sum$build.results.ClassPrev, pal.cb2 ) 
 # save plot to 'a' if using ggsave()
-# ggsave("Class Prevalence for Obs&Pred (Build) for Regions.png", a, dpi = 300, width = 16, height = 10, path = output.dir)
+# ggsave("Class Prevalence for Obs&Pred (Build) for Regions.png", a, dpi = 300, width = 16, height = 10, path = results.dir)
 
 ```
 
+## Build results
 **Figure 3: Comparison of observed and predicted prevalence for the Obs testing partition, by class, across regions.**  
 
 
@@ -266,7 +283,7 @@ Hard overpredicted in all regions.
 #-- User and producer accuracies by class ... 
 Plot.Class.Stats.For.Regions( build.sum$build.results.ByClass, pal.cb2 )
 # save plot to 'a' if using ggsave()
-# ggsave( 'Class Stats (Build) for Regions.png', a, dpi = 300, width = 16, height = 10, path = output.dir)
+# ggsave( 'Class Stats (Build) for Regions.png', a, dpi = 300, width = 16, height = 10, path = results.dir)
 
 ```
 
@@ -274,10 +291,6 @@ Plot.Class.Stats.For.Regions( build.sum$build.results.ByClass, pal.cb2 )
 
 
 First? Indication that Mixed is a bit of a problem  
-
-Pontius has different names for User/Producer accuracies (commission/omission rates)  
-Need to standardize on the best stats terminology (Joanne/Ed to work on this)  
-
 
 
 ```{=openxml}
@@ -291,15 +304,14 @@ Need to standardize on the best stats terminology (Joanne/Ed to work on this)
 ```
 
 
-```{r echo=FALSE, fig.width=10, fig.height=6, out.width='100%'}
-#-- depth_results needs to be re-calculated by main script. Not ideal. 
+```{r Depth_Results_TSS_by_Resolution, echo=FALSE, fig.width=10, fig.height=6, out.width='100%'}
 
 z <- depth.results2
 
 difTSS <- z[ z$Model == '100 m', ]$TSS - z[ z$Model == '20 m', ]$TSS
 z <- cbind( z, 'diffTSS' = difTSS)
 
-Plot.TSS.By.Depth.For.Regions(  z[ , c('Model', 'Region', 'Ribbon', 'TSS')], pal.cb2 )
+#Plot.TSS.By.Depth.For.Regions(  z[ , c('Model', 'Region', 'Ribbon', 'TSS')], pal.cb2 )
 Plot.TSS.By.Depth.For.Regions2( z[ , c('Model', 'Region', 'Ribbon', 'diffTSS')], pal.cb2[2] )
 
 #-- vs. What does a tigure look like? Not so good ... 
@@ -313,12 +325,7 @@ Plot.TSS.By.Depth.For.Regions2( z[ , c('Model', 'Region', 'Ribbon', 'diffTSS')],
 
 **Figure 5: Performance of 20 and 100 m models against the Obs testing partition, across depth ranges, by region.**  
 
-These data were also shown as 2 tigger plots (one for ea resolution) and it didn't look good.   
-
-TSS scaled as (TSS+1)/2. Really compresses the differences. i.e., unscaled values range from ~0.42 to ~0.75. 
-
-
-
+Agreed 2020/06/18 that difference plot was a good idea. 
 ```{=openxml}
 # Inserting a word page break ... 
 <w:p>
@@ -328,6 +335,19 @@ TSS scaled as (TSS+1)/2. Really compresses the differences. i.e., unscaled value
     </w:r>
 </w:p>
 ```
+
+```{r Depth_Results_Obs_Pontius, echo=FALSE, fig.width=10, fig.height=6, out.width='100%'}
+
+z <- depth.results2[ depth.results2$Model == '20 m', ]
+
+Plot.Pontius.By.Depth.For.Regions( z, rev(pal.cb4) )
+
+
+```
+
+**Figure 6: Performance of 20 m models across depth ribbons, by region (Obs testing partition.**  
+
+
 
 ## Figures - Part 2: Independent Data Evaluation
 
@@ -384,7 +404,7 @@ a <- Plot.Stats.By.IDS.For.Regions( z, pal.cb3, sz = 25, lx=0.76, ly=0.87 )
 a
 
 # Saving hi res image for manuscript ... 
-#ggsave( paste0( 'Figure 8 - Integrated Stats by IDE for Regions.png'), a, dpi = 300, width = 16, height = 10, path = output.dir)
+#ggsave( paste0( 'Figure 8 - Integrated Stats by IDE for Regions.png'), a, dpi = 300, width = 16, height = 10, path = results.dir)
 ```
 
 **Figure 7: Integrated statistics for Independent data sets by Region.**  
@@ -443,22 +463,29 @@ As with 7, produce another that is by depth classes.
 ```
 
 
-```{r IDS_Three, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
-# Pontius stats (Accuracy, Quantity, Exchange, Shift) by ribbon in regions ... 
+```{r IDS_By_Ribbon_A, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
+# Pontius stats (Accuracy, Quantity, Exchange, Shift) for IDS, by ribbon, 
+# one plot for each region.
 # Remember: Accuracy = 1 – (Quantity + Exchange + Shift).
 
-y <- IDE.results$Integrated
-z <- y[ y$Region %in% c('Coast', 'HG', 'NCC'), ]
-
-z <- z[, c( 'Region', 'IDS', 'Accuracy', 'Quantity', 'Exchange','Shift' )]
-
+z <- IDE.depths[ IDE.depths$Region == 'Coast', c( 'IDS', 'Ribbon', 'Accuracy', 'Shift','Exchange','Quantity' )]
 Plot.Pontius.By.IDS.Depth.For.Regions( z, rev(pal.cb4), sz = 25 )
-```
+```  
+**Figure 9a: Pontius statistics for Independent data sets by depth ribbon - Coastwide.**  
 
 
+```{r IDS_By_Ribbon_B, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
+z <- IDE.depths[ IDE.depths$Region == 'HG', c( 'IDS', 'Ribbon', 'Accuracy', 'Shift','Exchange','Quantity' )]
+Plot.Pontius.By.IDS.Depth.For.Regions( z, rev(pal.cb4), sz = 25 )
+```  
+**Figure 9b: Pontius statistics for Independent data sets by depth ribbon - Haida Gwaii.**  
 
+```{r IDS_By_Ribbon_C, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
+z <- IDE.depths[ IDE.depths$Region == 'NCC', c( 'IDS', 'Ribbon', 'Accuracy', 'Shift','Exchange','Quantity' )]
+Plot.Pontius.By.IDS.Depth.For.Regions( z, rev(pal.cb4), sz = 25 )
+```  
+**Figure 9c: Pontius statistics for Independent data sets by depth ribbon - North Central Coast.**  
 
-**Figure 9: Pontius statistics for Independent data sets by region, by depth ribbon.**  
 
 ```{=openxml}
 # Inserting a word page break ... 
@@ -477,7 +504,7 @@ Plot.Pred.Map.Prevalence( map.prev, build.sum, pal.RMSM)
 
 ```
 
-**Figure 10: Comparison of prevalence between model build(?) and study area predictions.**    
+**Figure 10: Comparison of prevalence in predictions between fitted model (points) and study area (Map).**    
 
 
 Mapped prevalences are a reasonable reflection of true prevalences by region  
@@ -485,8 +512,6 @@ Mapped prevalences are a reasonable reflection of true prevalences by region
 Appeal to author experience. And also technical argument why this would be so. e.g., stationarity across process; we know there is sample bias, would be disturbing to see that reflected in the predicted surface. Shows model is working! And that RF method is dealing well with prevalence.   
 
 Include illustration of value of wtd RF. Good conclusion, emphasizing the importance of dealing with prevalence in models. Table/Fig for suppl. Materials.  
-
-X-axis labels suck.  Observed / Mapped.  Points / Surface  
 
 Standardize terminology with earlier figure that compares build/test prevalences   
 
