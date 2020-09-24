@@ -54,7 +54,10 @@ pal.RMSM <- pal.cb8[ c(7, 5, 1, 3) ]
 pal.cb2 <- pal.cb8[ c(5, 6) ]
 #show.pal( pal.cb2 )
 
-pal.cb3 <- pal.cb8[ c(3, 5, 7) ]
+pal.cb3a <- pal.cb8[ c(3, 4, 7) ]
+#show.pal( pal.cb2 )
+
+pal.cb3b <- pal.cb8[ c(2, 5, 6) ]
 #show.pal( pal.cb3 )
 
 pal.cb4 <- brewer.pal(4, 'Dark2' )
@@ -62,6 +65,9 @@ pal.cb4 <- brewer.pal(4, 'Dark2' )
 
 pal.heat.10 <- brewer.pal(10, "RdYlBu")
 pal.heat.11 <- brewer.pal(11, "RdYlBu")
+
+# show.pal( pal.cb8 )
+# show.pal( pal.cb3b )
 
 #-- Old palettes (Coles and PNW) dropped in favour of CB above.
 # pal.cole <- c("#c6c6c6", "#c2f3f9", "#7fc9d8")
@@ -145,49 +151,49 @@ show.pal <- function( aa ){
 
 #========================== PLOTTING FUNCTIONS ==========================
 
+
+
+
+
 #-------------------------------
 #-- Heat maps of the build tables.
-Plot.Build.Class.Stats <- function( df, pal, w = 800, h = 600 ) {
+
+#-Given a df with a column named 'Stat', pull the rows with a specified stat and create the heatmap.
+# The heat map columns correspond to the substrate classes. These are columns in the df.
+# Also, the Region column has attributes describing which model it is. 
+Heat.Build.Class.Stats <- function( df, wtd = T, theStat, pal, w = 800, h = 600, txtCol ) {
+
+  #--- Data prep ... 
+  # Extract rows of interest 
+  statDF <- df[ df$Stat == theStat, ] 
   
-  # 1) User accuracy:
-  usr <- df[ df$Stat == 'User', ] 
-  foo <- usr[, -c(1:2) ]
-  row.names( foo ) <- usr$Region
+  # Remove the label colums, and name the rows after the regions 
+  foo <- statDF[, -c(1:2) ]
+  row.names( foo ) <- statDF$Region
   
-  #The cell values to display ... 
-  tab <- round( data.matrix(foo), 2)
+  #The values to display on each cell 
+  numtab <- round( data.matrix(foo), 2)
   
+  today <- substr( Sys.time(), 1, 10)
+  wtOrNot <- if(wtd==T) 'wtd' else 'noWts'
+  fname <- paste0( 'heat_', theStat, '_Build_', wtOrNot, '_', today, '.png' )
   
-  png( file.path( results.dir, 'heat_UserAccuracy_Build.png'), width = w, height = h )
+  png( file.path( results.dir, fname), width = w, height = h )
+       
   superheat( foo, heat.pal = pal, legend = F, grid.hline = F, grid.vline = F, scale = F,
-             X.text = tab, X.text.col = 'grey50', X.text.size = 10,
+             X.text = numtab, X.text.col = txtCol, X.text.size = 10,
              order.rows = rev(1:nrow(foo)),
              left.label.col = 'white', left.label.text.size = 10,
              bottom.label.col = 'White', bottom.label.size = 0.1, bottom.label.text.size = 10 )
-  dev.off()
   
-  # 2) Producer accuracy  ... 
-  prd <- df[ df$Stat == 'Prod', ] 
-  foo <- prd[, -c(1:2) ]
-  row.names( foo ) <- prd$Region
-  
-  #The cell values to display ... 
-  tab <- round( as.matrix(foo), 2)
-  
-  png( file.path( results.dir, 'heat_ProducerAccuracy_Build.png'), width = w, height = h )
-  superheat( foo, heat.pal = pal, legend = F, grid.hline = F, grid.vline = F, scale = F,
-             X.text = tab, X.text.col = 'grey50', X.text.size = 10,
-             order.rows = rev(1:nrow(foo)),
-             left.label.col = 'white', left.label.text.size = 10,
-             bottom.label.col = 'White', bottom.label.size = 0.1, bottom.label.text.size = 10 )
   dev.off()
 }
 
 
 #---------------------------------------------------
 #-- Heat map of predictor importance for all models. 
-Plot.Build.Var.Import <- function( df, pal, w = 800, h = 600 ) {
-
+Heat.Build.Var.Import <- function( df, pal, w = 800, h = 600, txtCol ) {
+  
   #-- create a rank table from the source df: 
   y <- data.frame(
     rbind( rank( -as.vector( df["Coast",] )),
@@ -207,48 +213,17 @@ Plot.Build.Var.Import <- function( df, pal, w = 800, h = 600 ) {
   # Zero out the NA in Coastal, text and value ... 
   t2[1,11] <- 'NA'
   y[1,11] <- 0
-  
-  #-- order according to the results ... 
-  olist <- c(1,11,2,10,3,9,6,4,5,7,8)
+
+  #-- order according to the results ... someting funny about vectors require these 2 steps. 
+  olist <- 1:ncol(y)
+  olist  <- olist[ c(1,11,2,10,3,9,6,4,5,7,8) ]
 
   png( file.path( results.dir, 'heat_VariableImportance_Build.png' ), width = w, height = h )
   superheat( y, heat.pal = pal, legend = F, grid.hline = F, grid.vline = F, scale = F,
-             X.text = t2, X.text.col = 'lightblue', X.text.size = 8, heat.lim = c(1,11),
+             X.text = t2, X.text.col = txtCol, X.text.size = 8, heat.lim = c(1,11),
              order.rows = rev(1:nrow(y)), order.cols = olist,
              left.label.col = 'white', left.label.text.size = 10,
              bottom.label.col = 'White', bottom.label.text.angle = 75, 
-             bottom.label.size = 0.4, bottom.label.text.size = 10, bottom.label.text.alignment = 'right' )
-  dev.off()
-}
-
-
-#----------------------------------------------------------
-#-- Heat map of model performance by region and depth class. 
-Plot.Region.Class.Stats <- function( csv, res, pal, w = 800, h = 600 ) {
-  
-  # grab the Variable imporatance  table ... 
-  # csv <- 'Build_results_varImportance.csv'
-  a <- read.csv( file = file.path( results.dir, csv ))
-  a <- a[ a$Model == res, -c(1,2)]
-
-  b <- rbind( a[ a$Region =="HG", "TSS"],
-         a[ a$Region =="NCC", "TSS"],
-         a[ a$Region =="WCVI", "TSS"],
-         a[ a$Region =="QCS", "TSS"],
-         a[ a$Region =="SOG", "TSS"]
-    )
-  rownames( b ) <- bioregions
-  colnames( b ) <- c( 'ITD','0-5','5-10','10-20','20-50','50+' )
-  
-  #Reverse the rows so it plots in correct order.  
-  b <- b[seq(dim(b)[1],1),]
-
-  png( file.path( results.dir, paste0( 'heat_TSS_byClassForResgions_', res, '.png' )), width = w, height = h )
-  superheat( b, heat.pal = pal, legend = F, grid.hline = F, grid.vline = F, scale = F,
-             X.text = round(b,2), X.text.col = 'grey50', X.text.size = 8,
-             pretty.order.cols = F, pretty.order.rows = F,
-             left.label.col = 'white', left.label.text.size = 10,
-             bottom.label.col = 'White', bottom.label.text.angle = 45, 
              bottom.label.size = 0.4, bottom.label.text.size = 10, bottom.label.text.alignment = 'right' )
   dev.off()
 }
@@ -260,15 +235,9 @@ Plot.Region.Class.Stats <- function( csv, res, pal, w = 800, h = 600 ) {
 #-- Class prevalence of obs and pred during build, faceted by region.
 # Source: csv built by build.summary(). 
 # NOTE: the order of the Obs/Pred rows is irrelevant because melted here. 
-Plot.Obs.Pred.Prevalence.Build <- function( dat.table, apal ){
+Plot.Obs.Pred.Prevalence.Build <- function( dat.table, apal, sz=15, lx=0, ly=0 ){
   
-  # change numbers to proportions
-  y <- data.frame( dat.table[,c(3:6)]/rowSums( dat.table[,c(3:6)] ))
-  # add results back to the ID columns
-  y <- cbind( dat.table[,c(1,2)], y)
-  names(y)[1] <- 'Source'
-  
-  foo <- melt( y, id.var = c('Region', 'Source'))
+  foo <- melt( dat.table, id.var = c('Region', 'Source'))
   
   a <- foo %>%
     # Adjust levels for correct faceting ... 
@@ -280,8 +249,40 @@ Plot.Obs.Pred.Prevalence.Build <- function( dat.table, apal ){
     facet_grid(. ~ Region) +
     scale_fill_manual(values = apal) +
     theme_bw() +
-    theme(text = element_text(size=15)) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4))
+    theme(  text = element_text(size=sz ),
+            axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4),
+            
+            # legend stuff          
+            legend.position = c(lx, ly),
+            legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
+    )
+  
+  return(a)
+}
+
+#2020/09/04: New plot to examine class-based stats across 3 RF models and all regions
+# Needs to be applied oncve per statistic (accuracy, specificity, and reliability)
+Plot.ClassStats.IDE <- function( dat.table, metr, apal, sz=15, lx=0, ly=0 ){
+  
+  foo <- melt( dat.table, id.var = c('Region', 'Model'))
+  
+  a <- foo %>%
+    # Adjust levels for correct faceting ... 
+    mutate(Region = factor(Region, levels=c("Coast", "HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
+    
+    ggplot(aes(x = variable, y = value, fill = Model)) +
+    geom_bar(stat = "identity", width = .6, position = "dodge") +
+    labs( x = NULL, y = metr ) +
+    facet_grid(. ~ Region) +
+    scale_fill_manual(values = apal) +
+    theme_bw() +
+    theme(  text = element_text(size=sz ),
+            axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4),
+            
+            # legend stuff          
+            legend.position = c(lx, ly),
+            legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
+    )
   
   return(a)
 }
@@ -337,7 +338,7 @@ Plot.Class.Stats.For.Regions <- function( dat.table, apal){
 }
 
 
-#--- TSS by Depth class withing Regions --- includes 20 and 100 m models.
+#--- TSS by Depth class within Regions --- includes 20 and 100 m models.
 Plot.TSS.By.Depth.For.Regions <- function( dat.table, apal){
 
   a <- dat.table  %>%
@@ -356,18 +357,20 @@ Plot.TSS.By.Depth.For.Regions <- function( dat.table, apal){
   return(a)
 }
 
-#--- TSS by Depth class withing Regions --- Version 2 - differences the 20 and 100 m models.
-Plot.TSS.By.Depth.For.Regions2 <- function( dat.table, apal){
+#--- Non-random stat by Depth class withing Regions 
+# Plots difference between the 20 and 100 m models for specified stat.
+Plot.Stat.By.Depth.For.Regions <- function( dat.table, stat, apal){
   
+  ylab <- paste0( stat, ' (100 m - 20 m )' )
   a <- dat.table  %>%
     # Adjust levels for correct faceting ... 
     mutate(Region = factor(Region, levels=c("HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
     
 #    ggplot(aes(x = Ribbon, y = diffTSS, fill = Model)) +
-    ggplot(aes(x = Ribbon, y = diffTSS )) +
+    ggplot(aes(x = Ribbon, y = diff )) +
 #    geom_bar(stat = "identity", width = .6, position = "dodge") +
     geom_bar(stat = "identity", width = .6 ) +
-    labs( x = NULL, y = 'TSS (100 m - 20 m )') +
+    labs( x = NULL, y = ylab) +
     facet_grid(. ~ Region ) +
     scale_fill_manual(values = apal) +
     theme_bw() +
@@ -391,7 +394,9 @@ Plot.Pontius.By.Depth.For.Regions <- function( df, apal, sz=20 ){
   theme( text = element_text( size=sz ),
          axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.4)
   ) +
-    
+#  scale_y_continuous( limits=c(0.5, 1.0) ) +
+#  ylim( 0.5, 1.0 ) +
+  coord_cartesian(ylim = c(0.5, 1.0)) +
   scale_fill_manual( values = apal,
                      name = 'Metrics')
   
@@ -441,7 +446,14 @@ Plot.Obs.By.IDS.For.Regions <- function( df, apal, sz = 20, lx=0, ly=0 ){
 # Params: sz used to set text size; lx, ly set position of legend
 Plot.Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
   
-  x <- df[, c( 'Region', 'IDS', 'TSS', 'Accuracy', 'TNRWtd' )]
+  x <- df[, c( 'Region', 'IDS', 'TSS', 'Accuracy', 'TNR' )]
+  
+  # Adjust for different random baselines
+  x$TSS <- x$TSS - 0.5
+  x$Accuracy <- x$Accuracy - 0.25
+  x$TNR <- x$TNR - 0.75
+  
+  names(x) <- c( 'Region', 'IDS', 'TSS', 'Accuracy', 'Specificity' )
   
   foo <- melt( x, id.vars = c('Region','IDS') )
   
@@ -466,6 +478,40 @@ Plot.Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
   
   return( a )
 }
+
+
+Plot.TSS.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
+  
+  x <- df[, c( 'Region', 'IDS', 'Model', 'TSS' )]
+  
+  # Adjust  baselines
+  x$TSS <- x$TSS - 0.5
+
+  foo <- melt( x, id.vars = c('Region','IDS', 'Model') )
+  
+  a <- foo %>%
+    ggplot(aes(x = IDS, y = value, fill = Model)) +
+    geom_bar(stat = "identity", width = .6, position = "dodge") +
+    labs( x = NULL, y = 'Model' ) +
+    facet_grid(. ~ Region) +
+    
+    theme_bw() +
+    theme(text         = element_text( size=sz ), 
+          axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.4),
+          
+          # legend stuff          
+          legend.position = c(lx, ly),
+          legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
+          
+    ) +
+    #    scale_fill_manual(name = 'Independent\ntest data',
+    scale_fill_manual(name = 'Metric',
+                      values = apal)
+  
+  return( a )
+}
+
+
 
 
 #------------------------------------------------
@@ -545,8 +591,6 @@ Plot.Pred.Map.Prevalence <- function( maprev, bs, pal){
 }
 
 
-
-
 #-----------------------------------------------------------------
 Plot.Pontius.By.IDS.For.Regions <- function( df, apal, sz=20 ){
   
@@ -591,9 +635,6 @@ Plot.Pontius.By.IDS.Depth.For.Regions <- function( df, apal, sz=20 ){
 }
 
 
-
-
-
 #--- Integrated Statistics by IDS faceted by Region V.2 ---
 #   Compare TSS (diff from random) vs. Quantity and Allocation (is this diff from accuracy)
 Plot.5Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
@@ -624,4 +665,52 @@ Plot.5Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
   return( a )
 }
 
+
+
+#-----------------------
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
 

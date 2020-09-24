@@ -1,6 +1,7 @@
 # substrate_model
 Repository created: 2020/02/20
-Last Update: 2020/06/15
+Updates: Continuous thru 2020/09/03
+Version: R version 3.6.2 x64
 
 CONTACT
 Edward Gregr
@@ -11,9 +12,22 @@ ed@SciTechConsulting.com
 DESCRIPTION
 This project uses a coast-wide data set of observations to build random forest models of bottom substrate using predictors at two resolutions (20 and 100 m) for all Pacific Canadian waters and 5 subregions. The predictive performance of the models is then tested using independent data sets.
 
-R version 3.6.2 x64
+To load/run the model:
+
+1) From IDE_Main.R, source substrate_functions.R and Plot_Functions.R
+2) Load the 4 RData files. 
+3) Re-build the summary data structures
+4) Run the RMarkdown script (from the console so the environment is visible)
+
 
 UPDATES
+
+Sept 2020
+Been awhile. Rmd now being used to organise all R-generated tables and figs. And also to link in figs (pngs) made elsewhere.
+Loading or re-building of analytic data frames now automated. Just run IDE_Main.R and go ... hopefully. 
+Added analysis of non-weighted model, and IDS evaluation of BoPs.
+Writing to CSV files removed. 
+
 
 June 2020 (b)
 Added rMarkdown file; moved all plotting here to organize figures and tables. 

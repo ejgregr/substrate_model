@@ -21,9 +21,10 @@
 # check for any required packages that aren't installed and install them
 required.packages <- c("superheat", "ggplot2", "reshape2", "tidyr","dplyr", 
                        "diffeR", "vegan", "ranger", "rgdal", "raster", "stringr",
-                       "measures", "caret", "PresenceAbsence" )
-# Currently not using:  "e1071", "randomForest", "spatialEco", "xlsx", "robustbase", "biomod2", "sp", "magrittr",
-#                       "tinytex", "rmarkdown", "binr"
+                       "e1071", "forcats", "measures", "caret", "PresenceAbsence" )
+
+# Currently not using:  "randomForest", "spatialEco", "xlsx", "robustbase", "biomod2", "sp", "magrittr",
+#                       "tinytex", "rmarkdown", "binr", 'gwxtab'
 
 uninstalled.packages <- required.packages[!(required.packages %in% installed.packages()[, "Package"])]
 
@@ -44,15 +45,16 @@ results.dir   <- 'C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results'
 model.dir     <- 'C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Models'
 predictor.dir <- 'C:/Data/SpaceData/Substrate2019/Predictors'
 source.dir    <- 'C:/Data/SpaceData/Substrate2019'
-raster.dir    <- 'C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Rasters'
+raster.dir    <- 'C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/Rasters'
 
 # Sources of all the necessary spatial data including regions and observations.
 # Data last updated May 30 2020. 
 source.files  <- list( 'Obs'     = 'obs.shp',
                        'Dive'    = 'IndependentData/All__BHM_SpatPts.shp',
                        'Cam'     = 'IndependentData/All_DropCam_SpatPts.shp',
-                       'ROV'     = 'IndependentData/All_ROV_SpatPts.shp',
-                       'Regions' = 'regions/BC_coast_regions.shp' )
+                       'ROV'     = 'IndependentData/All_ROV_SpatPts.shp' )
+
+polygon.files <- list( 'Regions' = 'regions/BC_coast_regions.shp' )
 
 # filepath to predictor directory (rasters must be tif format)
 
@@ -73,12 +75,14 @@ log.file <- 'IDE_test_log.txt'
 #-- Relevant RF constants. (Had 2 imps but one was for Random Forest)
 RFC <- list( 'ntree'=1000, 'repl'=TRUE, 'imp'='impurity', 'test.frac'=0.6 )
 
-
 #-- Some constants to standardize the managment of attribute names across the 
 #   100 m and 20 m predictors. 
-
 drop.list <- c('BT_Sorc','Rock','X','Y')
 
+# Define the depth classes ... 
+#z.breaks <- c( -5000, -50, -20, -10, -5, 0, 1000)
+z.breaks <- c( -1000, 0, 5, 10, 20, 50, 100, 200, 5000)
+z.ribs   <- c('ITD', '0-5', '5-10', '10-20', '20-50', '50-100', '100-200', '200+')
 
 #============================================================================
 #-- Functions.   
@@ -94,7 +98,7 @@ drop.list <- c('BT_Sorc','Rock','X','Y')
 # Returns:  a list with the final fitted model and a summary table of performance statistics.
 # Requires: training and testing data sets, a formula. 
 # Calls:    Results.Row()
-Fixed.Ranger.Model <- function( x.train, x.test, x.formula ){
+Wtd.Ranger.Model <- function( x.train, x.test, x.formula ){
   
   out.table <- NULL
   
@@ -113,76 +117,65 @@ Fixed.Ranger.Model <- function( x.train, x.test, x.formula ){
 }
 
 
+NoWt.Ranger.Model <- function( x.train, x.test, x.formula ){
+  
+  out.table <- NULL
+  
+  #-- build an UNweighted model ... 
+  props <- x.train %>% group_by(BType4) %>% count(BType4) 
+  x.model <- ranger( x.formula,
+                     data = x.train,
+                     num.trees = RFC$ntree, replace = RFC$repl, importance = RFC$imp, oob.error = T )
+  
+  #-- Evaluate with testing partition  ...
+  out.table <- rbind( out.table, Results.Row( x.model, x.test )) 
+  
+  return( list( 'Stats' = out.table, 'Model' = x.model ))
+}
+
+
 #-----------------------------------------------------------------------------------------------
 # Calculate statistics for a given RF model (testModel) and test set of observations (testData). 
 # 2020/05/10: Updated to include a subset of potential statistics, as approved by project team. 
+# 1010/08/10: Tweaking to stats now done. Added flag to allow a paired list to be used.
 # Returns: a data frame with a single row. suitable for rbind().
 # Requires: testModel: a weighted RF model built with ranger()
 #           testData : dataframe with correct predictors and observed BType
 #           testData must have the same predictors attached as those used to build testModel.
 # Calls:  diffr.Stats(); Prev.Balance()
-Results.Row <- function( testModel, testData, mant = 3 ){
+Results.Row <- function( testModel, testData, paired = F, mant = 3 ){
 
-  x <- predict( testModel, testData )
-  y <- caret::confusionMatrix( x$predictions, testData$BType4 )
+  # First parameter is either the model to generate predictions, or model predictions ... 
+  if (paired == F) {
+    a <- predict( testModel, testData )
+    preds <- a$predictions
+  } else
+    preds <- testModel
+  
+  y <- caret::confusionMatrix( preds, testData$BType4 )
   z <- data.frame(y$byClass)
-  prev <- Prev.Balance( summary(testData$BType4) / sum( summary(testData$BType4)) )
+  Imbal <- Prev.Balance( summary(testData$BType4) / sum( summary(testData$BType4)) )
   
   out1 <- data.frame( 
-    "N"         = nrow( testData),
-    "Imbalance" = round( prev, mant ), 
-    "OOB"       = round( testModel$prediction.error, mant ),
+    "N"         = nrow( testData ),
+    "Imbalance" = round( Imbal, mant ), 
+    "OOB"       = if (paired == T ) 0 else round( testModel$prediction.error, mant ),
     "TSS"       = TSS.Calc( y$table, TRUE ),
-#    "Kappa"     = round( as.numeric( y$overall[ 'Kappa' ]), mant ),
+    "TPR"       = round( sum( z$Sensitivity * z$Prevalence ), mant ),
+    'TNR'       = round( sum( z$Specificity * z$Prevalence ), mant ),
     "Accuracy"  = round( as.numeric( y$overall[ 'Accuracy' ]), mant ),
-    'TNRWtd'    = round( sum( z$Specificity * z$Prevalence ), mant ),
     round( diffr.Stats( y$table )/nrow(testData), mant ) #returns some pre-named, Pontius stuff.
   )
   out2 <- data.frame( 
-    "User"  = round( diag(y$table) / rowSums(y$table), mant ), 
-    "Prod"  = round( diag(y$table) / colSums(y$table), mant ),
+    "Prod" = round( diag(y$table) / colSums(y$table), mant ),
+    "User" = round( diag(y$table) / rowSums(y$table), mant ), 
+    "TPR"  = round( z$Sensitivity, mant ),
+    "TNR"  = round( z$Specificity, mant ),
     "PrevObs"  = round( as.vector( table( testData$BType4 )) ),
-    "PrevPred" = round( as.vector( table( x$predictions )) ))
+    "PrevPred" = round( as.vector( table( preds )) ))
   
   return( list( 'Integrated' = out1, 'PerClass' = t(out2) ))
 }
-
-
-#-- As above, but for paired list of Obs/Pred factors. 
-Results.Row2 <- function( obs, pred, mant = 3 ){
-  
-  y <- caret::confusionMatrix( pred, obs )
-  z <- data.frame(y$byClass)
-  prev <- Prev.Balance( summary(obs) / sum( summary(obs)) )
-  
-  out1 <- data.frame( 
-    "N"         = length( obs ),
-    "Imbalance" = round( prev, mant ), 
-    "TSS"       = TSS.Calc( y$table, TRUE ),
-    #    "Kappa"     = round( as.numeric( y$overall[ 'Kappa' ]), mant ),
-    "Accuracy"  = round( as.numeric( y$overall[ 'Accuracy' ]), mant ),
-    'TNRWtd'    = round( sum( z$Specificity * z$Prevalence ), mant ),
-    round( diffr.Stats( y$table )/length(obs), mant ) #returns some pre-named, Pontius stuff.
-  )
-  out2 <- data.frame( 
-    "User"  = round( diag(y$table) / rowSums(y$table), mant ), 
-    "Prod"  = round( diag(y$table) / colSums(y$table), mant ),
-    "PrevObs"  = round( as.vector( table( obs )) ),
-    "PrevPred" = round( as.vector( table( pred )) ))
-  
-  return( list( 'Integrated' = out1, 'PerClass' = t(out2) ))
-}
-
-# w <- obs.20mIV$HG[ obs.20mIV$HG$TestDat ==1, ]
-# Results.Row( rf.region.HG, w )
-# 
-# x <- predict( rf.region.HG, w )
-# y <- caret::confusionMatrix( x$predictions, w$BType4 )
-# y$byClass
-# y$overall
-# 
-# z <- diffr.Stats( y$table )
-# names(z)
 
 
 #----------------------------------------------------------------
@@ -306,29 +299,23 @@ Prev.Balance <- function( plist ){
 # env.predictors: raster stack of environmental predictors, ranger.model: model object, output.directory: path to output
 Predict.Surface <- function(env.predictors, ranger.model, output.directory, nm, pngpal){
   
-  # create output directory - this creates it in the working directory. If it exists, do not show warning
-#  dir.create(output.directory, showWarnings = FALSE)
-  
-  # save ranger model to disk as RData file
-#  save(ranger.model, file = file.path(output.directory, 'ranger_model.RData'))
-  
-  # predict substrate using raster stack and model file
+# Could test for output directory and bail if not found ...
+
+# predict substrate using raster stack and model file
   raster.obj <- raster::predict(object   = env.predictors,  
                                 model    = ranger.model,               
                                 progress = 'text',
                                 fun = function(model, ...) predict(model, ...)$predictions)
   
-  # write raster file to disk
+# write raster file to disk
   writeRaster(raster.obj, file.path(output.directory, 
                                     paste0(nm, '_classified_substrate.tif')), 
                                     format = 'GTiff', datatype = 'INT2S', overwrite = TRUE)
   
-  # generate table of proportions for each class in predicted raster
+# generate table of proportions for each class in predicted raster
   raster.prop <- round(100 * prop.table(table(na.omit(as.data.frame(getValues(raster.obj))))), 2)
   
-  # colour palette for map
-  #pal <- c("#999999", "#33bbff", "#ffff99", "#ffb84d")
-  
+
   # labels for legend
   labels <- c("Rock", "Mixed", "Sand", "Mud")
   
@@ -343,7 +330,6 @@ Predict.Surface <- function(env.predictors, ranger.model, output.directory, nm, 
   dev.off()
   
   return(list(raster.obj, raster.prop))
-  
 }
 
 
@@ -456,20 +442,26 @@ Test.Prevalence <- function( obs, N, part, theForm ){
 # Build a table to hold the performance scores for the various comparisons.
 # Requires: loaded independent data (dive, cam, ROV)
 #           all RF models built.
-Do.Independent.Evaluation <- function( results=NULL ){
+#----------------------------------
+#  2020/09/04: Rewrite of the function to doe one of three sets of RF models:
+#     Weighted (regular), Trimmed, or non-weighted.
+#  rfType IN ('rf', 'nwrf', 'trm')
+IDS.Evaluation <- function( rfType, results=NULL ){
   #-- Part 1: Coast model vs. each ID set. Regional IDE sets need to be assembled.  
-  results.int <- NULL
+  results.int   <- NULL
   results.class <- NULL
   
   # Dive Data - pull the regional data together  ... 
   x.test <- rbind( dive.20mIV$HG, dive.20mIV$NCC, dive.20mIV$QCS, dive.20mIV$WCVI, dive.20mIV$SOG )
   
+  rf <- eval(parse( text=paste0( rfType, '.region.Coast') ))
+  
   #-- Build the table piece ... 
   compare.what <- data.frame( 'Region' = 'Coast', 'IDS' = 'Dive' )
-  w <- Results.Row( rf.region.Coast, x.test )
+  w <- Results.Row( rf, x.test )
   x <- cbind( compare.what, w$Integrated )
   results.int <- rbind( results.int, x ) 
-
+  
   y <- cbind( compare.what, 'Stat' = row.names( w$PerClass ), w$PerClass )
   results.class <- rbind( results.class, y )
   print( 'Dive test done ...')
@@ -479,7 +471,7 @@ Do.Independent.Evaluation <- function( results=NULL ){
   
   #-- Build the table piece ... 
   compare.what <- data.frame( 'Region' = 'Coast', 'IDS' = 'Cam' )
-  w <- Results.Row( rf.region.Coast, x.test )
+  w <- Results.Row( rf, x.test )
   x <- cbind( compare.what, w$Integrated )
   results.int <- rbind( results.int, x ) 
   
@@ -487,12 +479,12 @@ Do.Independent.Evaluation <- function( results=NULL ){
   results.class <- rbind( results.class, y )
   print( 'Cam test done ...')
   
-    # Repeat for the ROV IDS  ... 
+  # Repeat for the ROV IDS  ... 
   x.test <- rbind( ROV.20mIV$HG, ROV.20mIV$NCC, ROV.20mIV$QCS, ROV.20mIV$WCVI, ROV.20mIV$SOG )
   
   #-- Build the table piece ... 
   compare.what <- data.frame( 'Region' = 'Coast', 'IDS' = 'ROV' )
-  w <- Results.Row( rf.region.Coast, x.test )
+  w <- Results.Row( rf, x.test )
   x <- cbind( compare.what, w$Integrated )
   results.int <- rbind( results.int, x ) 
   
@@ -509,7 +501,7 @@ Do.Independent.Evaluation <- function( results=NULL ){
   
   for (i in bioregions) {
     # select the regional model
-    m.model <- eval(parse( text=paste0( "rf.region.", i ) ))
+    m.model <- eval(parse( text=paste0( rfType, ".region.", i ) ))
     cat(i, "\n")
     
     for (j in IDS ){
@@ -543,16 +535,14 @@ Do.Independent.Evaluation <- function( results=NULL ){
 }
 
 
+
+
 #============================================ DATA PREPARATION  =================================
 
 #-------------------------------------------------------------------------------
 # Construct summary tables of build results. 
 # Takes: The build.results table from building all the RF models. 
-# Returns: Nothing. Side effect is to write results to CSV files:
-#     Build_results_Integrated.csv
-#     Build_results_byClassStats.csv
-#     Build_results_test_ClassPrevalence.csv
-#     Build_results_varImportance.csv
+# Returns: Nothing. Dropped writing of CSVs as now used to summarize both weighted and non-wtd models.
 Summarize.Build <- function( build.df ){
   # Bunch of hacking here to pull the tables together ... 
   # Requires: build.results data.frame as input.
@@ -576,31 +566,45 @@ Summarize.Build <- function( build.df ){
   z <- cbind( 'Region' = nm, y )
   row.names(z) <- NULL
   
-  out.file <- 'Build_results_Integrated.csv'
-  write.csv( z, file = file.path(results.dir, out.file) )
+      # out.file <- 'Build_results_Integrated.csv'
+      # write.csv( z, file = file.path(results.dir, out.file) )
   out[[ 'build.results.Integrated' ]] <- z
   
   # and the PerClass bit which includes:
-  #   1) A table with both User and Producer. A df with 2 sets of rows.
+  #   1) User and Producer accuracies, and
+  #   2) TPR and TNR rates (added 2020/08/24). 
+  # As a df with 4 blocks of data for each paramter, by region. 
   y <- do.call( rbind,  x$PerClass )
+
+  # User and producer accuracies first ... 
   z <- y[ (row.names(y) == 'User') | (row.names(y) == 'Prod') , ]
   
-  # User first ... 
   y.usr <- data.frame( 'Region' = nm, z[ c(1,3,5,7,9,11), ])
   row.names(y.usr) <- NULL
   
-  # Now producer  
   y.prd <- data.frame( 'Region' = nm, z[ c(2,4,6,8,10,12), ])
   row.names(y.prd) <- NULL
   
+  # Now REPEAT with TPR/TNR  ... 
+  z <- y[ (row.names(y) == 'TPR') | (row.names(y) == 'TNR') , ]
+  
+  y.tpr <- data.frame( 'Region' = nm, z[ c(1,3,5,7,9,11), ])
+  row.names(y.tpr) <- NULL
+  
+  y.tnr <- data.frame( 'Region' = nm, z[ c(2,4,6,8,10,12), ])
+  row.names(y.tnr) <- NULL
+
   zz <- rbind(
     cbind( 'Stat' = 'User', y.usr ),
-    cbind( 'Stat' = 'Prod', y.prd ) )
+    cbind( 'Stat' = 'Prod', y.prd ),
+    cbind( 'Stat' = 'TPR', y.tpr ),
+    cbind( 'Stat' = 'TNR', y.tnr ) )
   colnames(zz) <- c('Stat','Region','Hard','Mixed','Sand','Mud')
-  out.file <- 'Build_results_byClassStats.csv'
-  write.csv( zz, file = file.path(results.dir, out.file) )
-  out[[ 'build.results.ByClass' ]] <- zz
   
+      # out.file <- 'Build_results_byClassStats.csv'
+      # write.csv( zz, file = file.path(results.dir, out.file) )
+  out[[ 'build.results.ByClass' ]] <- zz
+   
   #   2) The prevalence of the testing obs vs. predicted.
   z <- y[ (row.names(y) == 'PrevObs') | (row.names(y) == 'PrevPred') , ]
   
@@ -616,10 +620,11 @@ Summarize.Build <- function( build.df ){
     cbind( 'Stat' = 'Obs', y.obs ),
     cbind( 'Stat' = 'Pred', y.prd ) )
   colnames(zz) <- c('Stat','Region','Hard','Mixed','Sand','Mud')
-  out.file <- 'Build_results_test_ClassPrevalence.csv'
-  write.csv( zz, file = file.path(results.dir, out.file) )
-  out[[ 'build.results.ClassPrev' ]] <- zz
   
+      # out.file <- 'Build_results_test_ClassPrevalence.csv'
+      # write.csv( zz, file = file.path(results.dir, out.file) )
+  out[[ 'build.results.ClassPrev' ]] <- zz
+   
   #-- And finally variable importance ... 
   # Integrated stats first ... 
   # 2020/04/09: Moved the ranking to the plot function so values can go thru and be displayed 
@@ -636,8 +641,8 @@ Summarize.Build <- function( build.df ){
   row.names(y) <- nm
   colnames(y)  <- names( build.df$HG.Import )
   
-  out.file <- 'Build_results_varImportance.csv'
-  write.csv( y, file = file.path(results.dir, out.file) )
+      # out.file <- 'Build_results_varImportance.csv'
+      # write.csv( y, file = file.path(results.dir, out.file) )
   out[[ 'build.results.VarImport' ]] <- y
   
   return( out )
@@ -670,8 +675,8 @@ Partition.Test.Data <- function( pts ){
   
   out <- list()
   
-  #-- Load the regions shape file containing the region pgons ... 
-  pgons <- readOGR( file.path(source.dir, "/regions/BC_coast_regions.shp") )
+  #-- Local copy of the regions pgons ... 
+  pgons <-pgon.data$Regions
   
   x <- pts@data
   x$BType4 <- as.factor( x$BType4 )
@@ -803,18 +808,34 @@ Diff.Sets <- function( x, y){
 # Straight up load of the independent point data sets from source shapefiles. 
 # Returns: list of PointFeatures
 # Requires: source.dir to be set.  
-Load.Point.Data <- function( shplist ) {
+Load.Point.Data <- function( ptlist ) {
   
   a <- list()
 
-  for (i in shplist) {
+  for (i in ptlist) {
     a <- c( a, 
             list( 'dat' = readOGR( file.path(source.dir, i )) ))
   }
   
-  names( a ) <- names( shplist )
+  names( a ) <- names( ptlist )
   return( a )
 }
+
+
+# Created 2020/07/22 to separate region polygon file to make it more explicit
+Load.Pgon.Data <- function( pgonlist ) {
+  
+  a <- list()
+  
+  for (i in pgonlist) {
+    a <- c( a, 
+            list( 'dat' = readOGR( file.path(source.dir, i )) ))
+  }
+  
+  names( a ) <- names(pgonlist )
+  return( a )
+}
+
 
 
 #---------------------------------------------------------------------------
@@ -867,16 +888,12 @@ split.Obs.Data <- function( obs, seed, train.size ){
 
 #============== Prep summaries for evaluation across depth ribbons ==============
 
-# Define the depth classes ... 
-#z.breaks <- c( -5000, -50, -20, -10, -5, 0, 1000)
-z.breaks <- c( -1000, 0, 5, 10, 20, 50, 5000)
-z.ribs <- c('ITD', '0-5', '5-10', '10-20', '20-50', '50+')
-
 #-- Part 1) Using Obs data. 
 
 #-----------------------------------
 #-- Function builds table of results by region and model type, across depth ribbons
 # Uses following 2 functions as helpers. 
+# NEED z.breaks and z.ribs defined.
 Models.Across.Ribbons <- function( tr ){
   
   x <- rbind(
@@ -905,8 +922,8 @@ Models.Across.Ribbons <- function( tr ){
   
   #str( dr )
   
-  out.file <- 'Stats_byRibbon_byRegion_byModel.csv'
-  write.csv( dr, file = file.path(results.dir, out.file) )
+  # out.file <- 'Stats_byRibbon_byRegion_byModel.csv'
+  # write.csv( dr, file = file.path(results.dir, out.file) )
   
   return( dr )
 }
@@ -973,97 +990,6 @@ Model.Fit.Obs.By.Depth <- function( regName, mant = 3 ){
 }
 
 
-#========== three functions as above but using extended depth ribbons ===========
-
-z.breaks2 <- c( -1000, 0, 5, 10, 20, 50, 100, 200, 5000)
-z.ribs2 <- c('ITD', '0-5', '5-10', '10-20', '20-50', '50-100', '100-200', '200+')
-
-Models.Across.Ribbons2 <- function( tr ){
-  
-  x <- rbind(
-    cbind( 'Region' = 'HG',  Coast.Fit.By.Region.By.Depth2( tr$HG )),
-    cbind( 'Region' = 'NCC', Coast.Fit.By.Region.By.Depth2( tr$NCC )),
-    cbind( 'Region' = 'WCVI',Coast.Fit.By.Region.By.Depth2( tr$WCVI )),
-    cbind( 'Region' = 'QCS', Coast.Fit.By.Region.By.Depth2( tr$QCS )),
-    cbind( 'Region' = 'SOG', Coast.Fit.By.Region.By.Depth2( tr$SOG )) )
-  
-  # Now test the regional models; each model uses its own, named 20 m Obs testing data.
-  
-  y <- rbind(
-    #  cbind( 'Region' = 'Coast',Model.Fit.Obs.By.Depth( 'Coast', 3 )),
-    cbind( 'Region' = 'HG',   Model.Fit.Obs.By.Depth2( 'HG', 3 )),
-    cbind( 'Region' = 'NCC',  Model.Fit.Obs.By.Depth2( 'NCC', 3 )),
-    cbind( 'Region' = 'WCVI', Model.Fit.Obs.By.Depth2( 'WCVI', 3 )),
-    cbind( 'Region' = 'QCS',  Model.Fit.Obs.By.Depth2( 'QCS', 3 )),
-    cbind( 'Region' = 'SOG',  Model.Fit.Obs.By.Depth2( 'SOG', 3 )) )
-  
-  # Combine the two results ... 
-  
-  dr <- rbind( 
-    cbind( Model = '100 m', x ),
-    cbind( Model = '20 m', y ) )
-  row.names( dr ) <- NULL
-  
-  
-  out.file <- 'Stats_byRibbon2_byRegion_byModel.csv'
-  write.csv( dr, file = file.path(results.dir, out.file) )
-
-return( dr )
-}
-
-Coast.Fit.By.Region.By.Depth2 <- function( tdat, mant = 3 ){
-  
-  rf <- rf.region.Coast
-  
-  tdat$zClass <- as.factor( findInterval( tdat$bathy, z.breaks2) )
-  
-  results <- NULL  
-  # loop thru each level, calculating performance of data subset 
-  for (k in levels( tdat$zClass ) ){
-    x.sub <- tdat[ tdat$zClass == k, ]
-    
-    # build the row label ... 
-    compare.what <- data.frame( 'Ribbon' = z.ribs2[ as.numeric(k) ], 
-                                'meanZ' = round( mean( x.sub$bathy ), mant ) )
-    
-    # make the results ... 
-    w <- Results.Row( rf, x.sub )
-    x <- cbind( compare.what, w$Integrated )
-    results <- rbind( results, x ) 
-  }
-  return (results)
-}
-
-Model.Fit.Obs.By.Depth2 <- function( regName, mant = 3 ){
-  
-  rf <- eval(parse( text=paste0( "rf.region.", regName ) ))
-  
-  if (regName == 'Coast') {
-    tdat <- obs.100mIV
-  } else
-    tdat <- eval(parse( text=paste0( 'obs.20mIV$', regName ) ))
-  
-  tdat <- tdat[ tdat$TestDat == 1, ]
-  tdat$zClass <- as.factor( findInterval( tdat$bathy, z.breaks2) )
-  
-  results <- NULL  
-  # loop thru each level, calculating performance of data subset 
-  for (k in levels( tdat$zClass ) ){
-    x.sub <- tdat[ tdat$zClass == k, ]
-    
-    # build the row label ... 
-    compare.what <- data.frame( 'Ribbon' = z.ribs2[ as.numeric(k) ], 
-                                'meanZ' = round( mean( x.sub$bathy ), mant ) )
-    
-    # make the results ... 
-    w <- Results.Row( rf, x.sub )
-    x <- cbind( compare.what, w$Integrated )
-    results <- rbind( results, x ) 
-  }
-  return (results)
-}
-
-
 #-- Part 2 - Test IDS across regions and depths ------------
 
 #-----------------------------------------------------------
@@ -1082,43 +1008,46 @@ Model.Fit.IDS.By.Depth <- function( idsName, regName, mant = 3 ){
   } else
     tdat <- eval(parse( text=paste0( idsName, '.20mIV$', regName ) ))
   
-  tdat$zClass <- as.factor( findInterval( tdat$bathy, z.breaks) )
+  tdat$zClass <- factor( findInterval( tdat$bathy, z.breaks), levels = c(1,2,3,4,5,6,7,8) )
   
   results <- NULL  
   # loop thru each level, calculating performance of data subset 
   for (k in levels( tdat$zClass ) ){
     x.sub <- tdat[ tdat$zClass == k, ]
     
+    print( dim(x.sub)[[1]] )
     # build the row label ... 
     compare.what <- data.frame( 'Ribbon' = z.ribs[ as.numeric(k) ], 
                                 'meanZ' = round( mean( x.sub$bathy ), mant ) )
     
-    # make the results ... 
-    w <- Results.Row( rf, x.sub )
-    x <- cbind( compare.what, w$Integrated )
-    results <- rbind( results, x ) 
+    # make the results ...
+    if (dim(x.sub)[[1]] > 0) {
+      w <- Results.Row( rf, x.sub )
+      x <- cbind( compare.what, w$Integrated )
+      results <- rbind( results, x ) 
+    } 
   }
   return (results)
 }
 
-
 #-----------------------------------------------------
 # Test how regional BoP models perform against the IDS
-# models Input: BoP geodatabase and layer
+# models Input: BoP geodatabase and layer, the corresponding region name in the region shape file.
 # Requires: IDS point data to exist ... 
 # Returns table of how well specified BoP fc predicted all IDS
-Build.IDE.BoP.Results <- function( bop, lyr ){
+Build.IDE.BoP.Results <- function( bop, lyr, nm ){
   
   # load the regional bottom patches ... 
   bp <- file.path("d:/spacedata2019/BoPs/Delivered/", bop)
   bops <- readOGR(dsn = bp,layer = lyr )
   
   # load the region file to pull the IDS points ... 
-  pgons <- readOGR( file.path(source.dir, "/regions/BC_coast_regions.shp") )
+  pgons <- pgon.data$Regions
   
   # Get name of region pgon ... this call took 30 min to put together! :\
-  idx <- which( bioregions %in% strsplit(bop, '_')[[1]][1] )
-  nm <- pgons$Region[order( pgons$Region )][ idx ]
+  # 2020/07/22: factor order messed up. just pass the name in
+  #idx <- which( bioregions %in% strsplit(bop, '_')[[1]][1] )
+  #nm <- pgons$Region[order( pgons$Region )][ idx ]
   
   bop.IDE <- NULL
   for (i in c('Dive', 'Cam')) {
@@ -1131,6 +1060,7 @@ Build.IDE.BoP.Results <- function( bop, lyr ){
     #x <- pts[ pgons[ pgons$Region == "Haida Gwaii",], ]@data
     
     rpts <- point.data[[ i ]][ pgons[ pgons$Region == nm,], ]
+    print( length( rpts) )
     
     # Ensure projection of BoPs agree with points (can be subtly different) ...
     crs( bops ) <- crs( rpts )
@@ -1141,39 +1071,28 @@ Build.IDE.BoP.Results <- function( bop, lyr ){
     # drop the spatial deets and combine obs with BoP pred 
     z <- cbind(rpts@data, y)
     
+    z <- z[ !is.na(z$BType1), ]
     # Transform BTypes into new BType comparable w RMSM
-    z$BType <- with(z, ifelse( BType1 != 3, BType1, 
+    z$BType4 <- with(z, ifelse( BType1 != 3, BType1, 
                                ifelse( BType2 == 'a', 3, 4))
     )
     
-    z$RMSM <- as.factor( z$RMSM )
-    z$BType <- as.factor( z$BType )
-    
+    z$RMSM  <- factor( z$RMSM, levels = c('1','2','3','4') )
+    z$BType4 <- factor( z$BType4, levels = c('1','2','3','4') )
+ 
     #print( caret::confusionMatrix( z$RMSM, z$BType )$table )
-    
     bop.IDE <- rbind( bop.IDE, 
-                      cbind( 'IDS' = i, 'Region' = bioregions[idx],
-                             Results.Row2( z$RMSM, z$BType )$Integrated ))
+                      cbind( 'IDS' = i, 'Region' = strsplit(bop, '_')[[1]][1],
+                             Results.Row( z$RMSM, z, paired = T )$Integrated ))
   }
   return( bop.IDE )
 }
+
+
 #rm( 'bop','lyr','bp','bops','pgons','idx','nm','i','rpts','y','z' )
 
 
-#-----------------------------------
-# Build a table of IDE results. 
-# Requires: IDE.Results
-IDE.Results.Table <- function() {
-  
-  x <- IDE.results$Integrated
-  y <- rbind( x[x$IDS=='Dive',], 
-              x[x$IDS=='Cam',],
-              x[x$IDS=='ROV',]
-  )
-  z <- cbind( 'IDS'=y$IDS, y[,-2] )
-  rownames( z ) <- NULL
-  return( z )  
-}
+
 
 
 

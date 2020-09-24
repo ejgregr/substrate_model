@@ -1,42 +1,87 @@
 ---
 title: "Substrate Tables and Figures"
 author: "Edward Gregr"
-date: "6/29/2020"
+date: "2020/09/01"
 output: word_document
 ---
 
-```{r Setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r Build_Tables, echo=FALSE}
+library( knitr )
 knitr::opts_chunk$set(fig.width=12, fig.height=8) 
 
-```
-# Overview 
+#-- Main statistics don't make a very nice bar plot. Report as table. 
+T.cap <- "Table 3: Aggregated model build metrics for all models, showing the weighted random forest results in the first row, and the unweighted results in the second row. Out of bag (OOB) values show the mean prediction error from the random forest re-sampling. The true skill statistic (TSS), true positive rate (TPR), and true negative rate (TNR) express by how model performance exceeds random, while accuracy, quantity, exchange and shift provide an assessment of model error. See supplementary materials for more details." 
 
-Since the meeting on 2020/06/18:
-- colour-blind palette done
-    Now hard to find text that works on all heat map colours
-    Obs/Pred and Model/Map pairs could have different (but consistent colours)
-    
-- TSS difference done for depth classes
-- TSS scaled on all plots and tables
+x <- rbind( build.sum$build.results.Integrated,
+            build.sum.nw$build.results.Integrated )
 
-TO DO:  
-- Create new Suppl. materials section.   
-- Need decision re density comparison. Necessary? Its conflated with depth. Does this matter? 
+# adjust region levels ... arguably should be much earlier ... 
+levels( x$Region ) <- fct_relevel(x$Region, "Coast", "HG", "NCC", "WCVI", "QCS", "SOG" )
 
-Worth doing by Region? How best to structure? (e.g., pick an earlier figure as a template?).
+x <- x[ order(x$Region),]
+x <- x[ , c( 'Region', 'N', 'Imbalance', 'OOB', 'TSS', 'Accuracy', 'TNR', 'Quantity', 'Exchange', 'Shift')]
+names(x)[7] <- 'Specificity'
+row.names(x) <- NULL
 
-Group interpretation (2020/06/18):   
-- Higher dens sampling areas closer to shore, and more heterogeneity close to shore. Hi dens required to capture this hetro, and so these areas better captured  
+kable( x , digits=2, caption = T.cap )
 
-- High density areas more heterogeneous, this thought to potentially confuse the model, leading to reduced accuracy.   
 
-To Do: Revisit with top/bottom 25%  
+# Create table of how 100 m coastal model predicts at regional scale. 
+# REQUIRES test.regions to exist. 
+T.cap <- "Table 4: Aggregated metrics for the 100 m model built for each region (see Table 1 for a description of the metrics). Regional sample sizes differ slightly from Table 1 because for this comparison the build data were separated using a regional shape file, whereas in Table 1 the points were selected to region using regional 20 m rasters." 
 
-Two parts: Density of points has higher imbalance ? but we are not dealing with complexity of the coastline, which we would see, perhaps if we did it by region.   
+x <- rbind( 
+    cbind( 'Region' = 'Coast', Results.Row( rf.region.Coast, test.regions$Coast )$Integrated), 
+    cbind( 'Region' = 'HG',    Results.Row( rf.region.Coast,    test.regions$HG )$Integrated), 
+    cbind( 'Region' = 'NCC',   Results.Row( rf.region.Coast,   test.regions$NCC )$Integrated),
+    cbind( 'Region' = 'WCVI',  Results.Row( rf.region.Coast,  test.regions$WCVI )$Integrated),
+    cbind( 'Region' = 'QCS',   Results.Row( rf.region.Coast,   test.regions$QCS )$Integrated),
+    cbind( 'Region' = 'SOG',   Results.Row( rf.region.Coast,   test.regions$SOG )$Integrated)
+  )
 
-- Pontius has different names for User/Producer accuracies (commission/omission rates)  
-Need to standardize on the best stats terminology (Joanne/Ed to work on this)  
+x <- x[, !(names(x) %in% c("OOB")) ]
+x <- x[ , c( 'Region', 'N', 'Imbalance', 'TSS', 'Accuracy', 'TNR', 'Quantity', 'Exchange', 'Shift')]
+names(x)[6] <- 'Specificity'
+row.names( x ) <- NULL
+
+kable( x, digits=2, caption = T.cap )
+
+
+# Table of IDE results. 
+
+T.cap <- "Table 5: Performance of each random forest model for each independent data set." 
+
+#- Build an IDE results table for the Wtd model ... 
+
+x <- IDE.results.wtd$Integrated
+y <- rbind( x[x$IDS=='Dive',], 
+            x[x$IDS=='Cam',],
+            x[x$IDS=='ROV',]
+  )
+z <- cbind( 'IDS'=y$IDS, y[,-2] )
+rownames( z ) <- NULL
+
+x <- z
+x <- x[, !(names(x) %in% c("OOB")) ]
+x <- x[ , c( 'IDS', 'Region', 'N', 'Imbalance', 'TSS', 'Accuracy', 'TNR', 'Quantity', 'Exchange', 'Shift')]
+names(x)[7] <- 'Specificity'
+row.names( x ) <- NULL
+
+kable( x, digits=2, caption = T.cap )
+
+
+# Build ANOVA from depth.results argument ... 
+
+# # Copied from IDE_Main.R ... 
+# names(depth.results)
+# cor( depth.results[, -c(1:3)] )
+# 
+# # replace TSS w other metrics to create results. 
+# a <- lm( TSS ~ Model + Region + Ribbon + N + Imbalance, data = depth.results )
+# summary(a)
+# anova( a )
+
+```   
 
 
 ```{=openxml}
@@ -49,6 +94,546 @@ Need to standardize on the best stats terminology (Joanne/Ed to work on this)
 </w:p>
 ```
 
+```{r Fig_1_Boundaries, echo=FALSE}
+
+#-- Insert pre-built boundary file as png.
+```
+
+![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/figures/boundaries.png){ fig.fullwidth=TRUE }
+
+**Figure 1: Map of study area showing outline of the shelf (for the 100 m coastwide model) and the five regions including Haida Gwaii (HG), North Central Coast (NCC), West Coast of Vancouver Island (WCVI), Queen Charlotte Strait (QCS), and the Strait of Georgia (SOG).**
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+```{r Fig_2_Build_Heatmaps, echo=FALSE}
+
+#--- Heatmaps (tigures!) of build stats. 
+# As superheat library only makes pngs, they have to be pre-built and then just called here. 
+
+# 2020/09/04: Now pre-built multi-panel from the heatmap output.
+
+```
+![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/figures/ms_figure2_classheat.png)
+
+**Figure 2: Heatmaps of class-based true positive rate (top) and true negative rate (bottom) for weighted (left column) and non-weighted (right column) models. The colour shading within each row reflects the underlying numbers from high (red) to low (blue) and is included to make the differences in values more readily apparent.**  
+
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+
+```{r Fig_3_Build_Prevalence, echo=FALSE }
+
+#-- Prevalence plots (obs & predicted) for build (testing partition), faceted by Region
+a <- build.sum$build.results.ClassPrev
+b <- build.sum.nw$build.results.ClassPrev[7:12,]
+
+# change numbers to proportions
+x <- a[, names(a) %in% c('Hard', 'Mixed', 'Sand', 'Mud')]
+y <- data.frame(  x / rowSums( x ))
+
+# add results back to the Region column
+z <- cbind( 'Region' = a$Region, 'Source' = c(rep('Observed',6), rep('Weighted',6)), y)
+
+#--- do it again with the non-wtd model, this time keep only the predictions ... 
+
+x <- b[, names(b) %in% c('Hard', 'Mixed', 'Sand', 'Mud')]
+y <- data.frame(  x / rowSums( x ))
+zz <- cbind( 'Region' = b$Region, 'Source' = rep('No Weights',6), y)
+
+foo <- rbind( z, zz)
+
+Plot.Obs.Pred.Prevalence.Build( foo, pal.cb3b, sz=30, lx=0.15, ly=0.85 ) 
+
+# save plot to 'a' if using ggsave()
+# ggsave("Class Prevalence for Obs&Pred (Build) for Regions.png", a, dpi = 300, width = 16, height = 10, path = results.dir)
+
+```
+
+**Figure 3: Observed class prevalences for the build testing partition compared to predictions from the weighted and unweighted random forest models across regions.**  
+
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+
+![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/heat_VariableImportance_Build.png){ fig.fullwidth=TRUE }
+
+**Figure 4: Heatmap of variable importance across models. Importance is defined as the proportion of each predictor's contribution to the model, relative to the predictor with the highest contribution. (p/max(p)). The colour shading within each row reflects the underlying numbers from high (red) to low (blue) and is included to make the differences in the values more readily apparent. NA indicates that Fetch was not used as a predictor for the Coast model.**  
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+```{r Fig5_Model_Compare, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
+#-- Does using just the top 6 predictors improve RF performance against the IDS?
+#   Rolled up with BoPs data as figure
+
+#-- COMBINE the alternate models into a table of IDE results ... 
+a <- IDE.results.wtd$Integrated
+a <- a[, c('IDS', 'Region', 'N', 'Imbalance', 'TSS', 'Accuracy', 'TNR', 'Quantity', 'Exchange', 'Shift') ]
+a <- a[ a$IDS %in% c('Dive', 'Cam'), ]
+
+a <- data.frame( a[ a$Region %in% c('HG', 'NCC', 'WCVI', 'QCS', 'SOG'), ])
+a <- cbind( a[, c(1,2)], 'Model' = 'Full', a[, c(3:10)] )
+
+b <- IDE.results.trm$Integrated
+b <- b[, c('IDS', 'Region', 'N', 'Imbalance', 'TSS', 'Accuracy', 'TNR', 'Quantity', 'Exchange', 'Shift') ]
+b <- b[ b$IDS %in% c('Dive', 'Cam'), ]
+
+b <- data.frame( b[ b$Region %in% c('HG', 'NCC', 'WCVI', 'QCS', 'SOG'), ])
+b <- cbind( b[, c(1,2)], 'Model' = 'Trimmed', b[, c(3:10)] )
+
+c <- IDE.BoP[, c('IDS', 'Region', 'N', 'Imbalance', 'TSS', 'Accuracy', 'TNR', 'Quantity', 'Exchange', 'Shift') ]
+c <- cbind( c[, c(1,2)], 'Model' = 'BoP', c[, c(3:10)] )
+
+d <- rbind( a, b, c )
+
+model.compare <- d[ with(d, order(IDS, Region)), ]
+row.names(model.compare) <- NULL
+
+
+Plot.TSS.By.IDS.For.Regions( model.compare, pal.cb3b, sz = 25, lx=0.85, ly=0.87 )
+
+```
+
+**Figure 5: True skill statistic (scaled to a random baseline of 0.5) assessing the forecast skill of three models (the full random forest (RF) model, a RF model trimmed to use only the 6 most influential predictors, and the bottom patch (BoP) object-based model) against the Dive and Camera (Cam) independent data sets, for all 20 m regional models.  **  
+
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+
+```{r Fig6_IDS_One, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
+
+# 3) Look at Integrated statistics for each IDS by Region.
+# Use a predetermined collection of stats (see function)
+
+# Again, start with a little data prep ... 
+
+y <- IDE.results.wtd$Integrated
+z <- y[ y$Region %in% c('Coast', 'HG', 'NCC'), ]
+
+# This function can be used to generate various views of the data. 
+# 2020/05/25 DH preferred IDS as the grouping variable ... 
+# 2020/08/23 Standardized them all as the difference from random baseline
+Plot.Stats.By.IDS.For.Regions( z, pal.cb3b, sz = 25, lx=0.85, ly=0.87 )
+
+# To save  hi res image for manuscript ... save above to 'a', and ... 
+#ggsave( paste0( 'Figure 8 - Integrated Stats by IDE for Regions.png'), a, dpi = 300, width = 16, height = 10, path = results.dir)
+```
+
+**Figure 5: Integrated, better-than-random metrics for independent data sets by Region. The metrics are shown as the difference to the random baseline. Thus positive values indicate performance better than random and negative values indicate performance worse than random. In a multi-class error matrix, the random baseline differs for each statistic: for the true skill statistic (TSS) it is 0.5, for the true positive rate (TPR) it is 0.25, and for the true negative rate (TNR) it is 0.75. Where bars are not shown, the difference was 0, indicating random performance.  **  
+
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+
+```{r Fig7_IDS_Two, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
+
+# What about TSS vs. Quantity and Allocation?
+# Remember: Accuracy = 1 – (Quantity + Exchange + Shift).
+
+y <- IDE.results.wtd$Integrated
+z <- y[ y$Region %in% c('Coast', 'HG', 'NCC'), ]
+
+z$Allocation <- z$Shift + z$Exchange
+z <- z[, c( 'Region', 'IDS', 'Accuracy', 'Quantity', 'Exchange','Shift' )]
+
+Plot.Pontius.By.IDS.For.Regions( z, rev(pal.cb4), sz = 25 )
+```
+
+**Figure 7: Error assessment statistics for independent data sets by region.**  
+
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+
+```{r Fig8a_Depth_Results_by_Resolution_TSS, echo=FALSE, fig.width=10, fig.height=6, out.width='100%'}
+
+z <- depth.results
+
+# Build some difference columns, and add them back to z. NOTE they are half the length, but can just pull the top half of the list for plotting. 
+
+dif <- z[ z$Model == '100 m', ]$TSS - z[ z$Model == '20 m', ]$TSS
+z <- cbind( z, 'diffTSS' = dif )
+
+dif <- z[ z$Model == '100 m', ]$TPR - z[ z$Model == '20 m', ]$TPR
+z <- cbind( z, 'diffTPR' = dif )
+
+dif <- z[ z$Model == '100 m', ]$TNR - z[ z$Model == '20 m', ]$TNR
+z <- cbind( z, 'diffTNR' = dif )
+
+#Plot.TSS.By.Depth.For.Regions(  z[ , c('Model', 'Region', 'Ribbon', 'TSS')], pal.cb2 )
+y <- z[ 1:40, c('Model', 'Region', 'Ribbon', 'diffTSS')]
+names(y)[4] <- 'diff'
+Plot.Stat.By.Depth.For.Regions( y, 'TSS', pal.cb2[2] )
+
+```
+
+**Figure 8a: Difference in the true skill statistic (TSS) between the 20 and 100 m models across depth ranges, by region (using the build testing partition).**  
+
+```{r Fig8b_Depth_Results_by_Resolution_TPR, echo=FALSE}
+y <- z[ 1:40, c('Model', 'Region', 'Ribbon', 'diffTPR')]
+names(y)[4] <- 'diff'
+Plot.Stat.By.Depth.For.Regions( y, 'TPR', pal.cb2[2] )
+
+```
+
+**Figure 8b: Difference in the true positive rate (TPR) between the 20 and 100 m models across depth ranges, by region (using the build testing partition).**  
+
+```{r Fig8c_Depth_Results_by_Resolution_TNR, echo=FALSE}
+y <- z[ 1:40, c('Model', 'Region', 'Ribbon', 'diffTNR')]
+names(y)[4] <- 'diff'
+Plot.Stat.By.Depth.For.Regions( y, 'TNR', pal.cb2[2] )
+
+```
+
+**Figure 8c: Difference in the true negative rate (TNR) between the 20 and 100 m models across depth ranges, by region (using the build testing partition).**  
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+```{r Fig9a_Depth_Results_Obs_Pontius, echo=FALSE, fig.width=10, fig.height=6, out.width='100%'}
+
+z <- depth.results[ depth.results$Model == '100 m', ]
+
+# Change levels so Coast is first ... 
+z <- mutate( z, Region = forcats::fct_relevel( z$Region, c('HG', 'NCC', 'WCVI', 'QCS', 'SOG') ))
+
+#Adjust accuracy so bars are all the same height 
+z$Accuracy <- 1 - (z$Shift + z$Exchange + z$Quantity)
+
+Plot.Pontius.By.Depth.For.Regions( z, rev(pal.cb4) )
+```
+
+**Figure 9a: Performance of 100 m coastwide model by region, across depth zones, using the build testing partition.**  
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+```{r Fig9b_Depth_Results_Obs_Pontius, echo=FALSE, fig.width=10, fig.height=6, out.width='100%'}
+
+z <- depth.results[ depth.results$Model == '20 m', ]
+
+# Change levels so Coast is first ... 
+z <- mutate( z, Region = forcats::fct_relevel( z$Region, c('HG', 'NCC', 'WCVI', 'QCS', 'SOG') ))
+
+#Adjust accuracy so bars are all the same height 
+z$Accuracy <- 1 - (z$Shift + z$Exchange + z$Quantity)
+
+Plot.Pontius.By.Depth.For.Regions( z, rev(pal.cb4) )
+```
+
+**Figure 9b: Performance of 20 m regional models across depth zones, using the build testing partition.**  
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+
+```{r Fig10a_IDS_By_Ribbon_A, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
+# Pontius stats (Accuracy, Quantity, Exchange, Shift) for IDS, by ribbon, 
+# one plot for each region.
+# Remember: Accuracy = 1 – (Quantity + Exchange + Shift).
+
+z <- IDE.depths[ IDE.depths$Region == 'Coast', c( 'IDS', 'Ribbon', 'Accuracy', 'Shift','Exchange','Quantity' )]
+
+#Adjust accuracy so bars are all the same height 
+z$Accuracy <- 1 - (z$Shift + z$Exchange + z$Quantity)
+
+Plot.Pontius.By.IDS.Depth.For.Regions( z, rev(pal.cb4), sz = 25 )
+```  
+
+**Figure 10a: Accuracy and error assessment statistics for independent data sets by depth zone - Coastwide.**  
+
+
+```{r Fig10b_IDS_By_Ribbon_B, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
+z <- IDE.depths[ IDE.depths$Region == 'HG', c( 'IDS', 'Ribbon', 'Accuracy', 'Shift','Exchange','Quantity' )]
+
+#Adjust accuracy so bars are all the same height 
+z$Accuracy <- 1 - (z$Shift + z$Exchange + z$Quantity)
+
+Plot.Pontius.By.IDS.Depth.For.Regions( z, rev(pal.cb4), sz = 25 )
+```  
+
+**Figure 10b: Accuracy and error assessment statistics for independent data sets by depth zone - Haida Gwaii.**  
+
+```{r Fig10c_IDS_By_Ribbon_C, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
+z <- IDE.depths[ IDE.depths$Region == 'NCC', c( 'IDS', 'Ribbon', 'Accuracy', 'Shift','Exchange','Quantity' )]
+
+#Adjust accuracy so bars are all the same height 
+z$Accuracy <- 1 - (z$Shift + z$Exchange + z$Quantity)
+
+Plot.Pontius.By.IDS.Depth.For.Regions( z, rev(pal.cb4), sz = 25 )
+```  
+
+**Figure 10c: Accuracy and error assessment statistics for independent data sets by depth zone - North Central Coast.**  
+
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+```{r Fig11_Prevalences, echo=FALSE, fig.fullwidth=TRUE }
+#-- Plots the Study Area prevalence results. Requires the map.prev structure. 
+Plot.Pred.Map.Prevalence( map.prev, build.sum, pal.RMSM)
+```
+
+**Figure 11: Comparison of prevalence in predictions between fitted model (points) and study area (Map).**    
+
+Mapped prevalences are a reasonable reflection of true prevalences by region  
+
+Appeal to author experience. And also technical argument why this would be so. e.g., stationarity across process; we know there is sample bias, would be disturbing to see that reflected in the predicted surface. Shows model is working! And that RF method is dealing well with prevalence.   
+
+Include illustration of value of wtd RF. Good conclusion, emphasizing the importance of dealing with prevalence in models. Table/Fig for suppl. Materials.  
+
+Standardize terminology with earlier figure that compares build/test prevalences   
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+
+## Supplemental tables and figures
+
+
+```{r Weight_comparison_integrated_table, echo=FALSE}
+library( knitr )
+# Build a weighted non-weighted comparision table. 
+a <- build.sum$build.results.ByClass[ build.sum$build.results.ByClass$Stat %in% c('TPR', 'TNR', 'User'), ]
+a <- cbind( 'Model' = 'Weighted', a)
+a <- a[ order( a$Region ), ]
+
+b <- build.sum.nw$build.results.ByClass[ build.sum$build.results.ByClass$Stat %in% c('TPR', 'TNR', 'User'), ]
+b <- cbind( 'Model' = 'No weights', b)
+
+c <- rbind( a,b )
+c <- c[ order( c$Region ), c('Region', 'Model', 'Stat', 'Hard', 'Mixed', 'Sand', 'Mud') ]
+row.names(c) <- NULL
+
+T.cap <- "Table S1: Class-based true positive (TPR/Accuracy) and true negative (TNR/Specificity) rates, and reliability (User Accuracy) for all regions, comparing weighted and non-weighted random forest models." 
+kable( c, digits=2, caption = T.cap )
+```
+
+
+```{r IDE_byClass_allRegions_table, echo=FALSE}
+library( knitr )
+
+T.cap <- "Table S2: Class-based assessment of independent data evaluation showing true positive (TPR/Accuracy) and true negative (TNR/Specificity) rates, and reliability (User Accuracy) for all regions, for all independent data sets."
+
+x <- rbind(
+  cbind( 'Model' = 'Wtd',   IDE.results.wtd$PerClass[ IDE.results.wtd$PerClass$IDS == 'Dive', ]),
+  cbind( 'Model' = 'NoWts', IDE.results.nowt$PerClass[ IDE.results.nowt$PerClass$IDS == 'Dive', ]),
+  cbind( 'Model' = 'Trim',  IDE.results.trm$PerClass[ IDE.results.trm$PerClass$IDS == 'Dive', ]),
+  cbind( 'Model' = 'Wtd',   IDE.results.wtd$PerClass[ IDE.results.wtd$PerClass$IDS == 'Cam', ]),
+  cbind( 'Model' = 'NoWts', IDE.results.nowt$PerClass[ IDE.results.nowt$PerClass$IDS == 'Cam', ]),
+  cbind( 'Model' = 'Trim',  IDE.results.trm$PerClass[ IDE.results.trm$PerClass$IDS == 'Cam', ])
+)
+
+x <- x[ x$Stat %in% c( 'TPR', 'TNR', 'User'), ]
+colnames(x) <- c('Model', 'Region', 'IDS', 'Stat', 'Hard', 'Mixed', 'Sand', 'Mud')
+
+y <- x[ , c('IDS', 'Region', 'Stat', 'Model', 'Hard', 'Mixed', 'Sand', 'Mud') ]
+
+#y <- mutate(y, Scale = factor(Stat, levels=c("Points", "Map")))
+y <- mutate( y, Stat = forcats::fct_relevel( y$Stat, c('TPR', 'TNR', 'User') ))
+
+z <- y[ with(y, order(IDS, Region, Stat, Model)), ]
+row.names(z) <- NULL
+
+kable( z, digits=2, caption = T.cap )
+
+```   
+
+
+```{r Model_comparison_integrated_table, echo=FALSE}
+library( knitr )
+
+T.cap <- "Table S3: Integrated performance metrics for three models (the full random forest (RF) model, a RF model trimmed to use only the 6 most influential predictors, and the bottom patch (BoP) object-based model) against the Dive and Camera (Cam) independent data sets, for all 20 m regional models." 
+
+# USES model.compare built above for Fig 5
+kable( model.compare, digits=2, caption = T.cap )
+
+```   
+
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+```{r IDS_One, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
+# Depends on IDE.results created in main script. 
+#--- 1) Begin by looking at IDS sample sizes using perClass prevalences 
+x <- IDE.results.wtd$PerClass
+y <- x[ x$Stat == 'PrevObs', ]
+
+# Tidy the data a bit  ... 
+y <- x[ x$Stat == 'PrevObs', ] %>% subset(select = -c(Stat))
+colnames(y) <- c( 'Region', 'IDS', 'Rock', 'Mixed', 'Sand', 'Mud')
+rownames(y) <- NULL
+
+# fill in  blank data to balance plot ... 
+y <- rbind( y, data.frame( 'Region' = 'WCVI', 'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0),
+               data.frame( 'Region' = 'QCS',  'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0),
+               data.frame( 'Region' = 'SOG',  'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0) )
+
+Plot.Obs.By.IDS.For.Regions( y, pal.cb3b, sz = 25, lx=0.83, ly=0.75 )
+
+```
+
+**Figure S1: Prevalence of independent data sets by depth class, across regions. **  
+
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+```{r Setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+# Overview 
+
+Since the meeting on 2020/06/18:
+- colour-blind palette done
+    Now hard to find text that works on all heat map colours
+    Obs/Pred and Model/Map pairs could have different (but consistent colours)
+    
+- TSS difference done for depth classes
+- TSS scaled on all plots and tables
+
+TO DO:  
+- Create new Suppl. materials section.   
+	SUPPLEMENTAL FIGURES   
+		S1 - S5: Regional figures showing build data density.
+		
+- Pontius has different names for User/Producer accuracies (commission/omission rates)  
+Need to standardize on the best stats terminology (Joanne/Ed to work on this)  
+- Confirm TSS scaling working properly. More code walk thrus.  
+- Update following page on data processing. Update links btwn dataframes and rmd script.   
+- Need decision re density comparison. Necessary? Its conflated with depth. Does this matter?  
+Worth doing by Region? How best to structure? (e.g., pick an earlier figure as a template?).
+
+Group interpretation (2020/06/18):   
+- Higher dens sampling areas closer to shore, and more heterogeneity close to shore. Hi dens required to capture this hetro, and so these areas better captured  
+- High density areas more heterogeneous, this thought to potentially confuse the model, leading to reduced accuracy.   
+- Revisit with top/bottom 25%  
+- Recall that point subsetting by region can now be linked back to pt features using ID 
+
+Two parts: Density of points has higher imbalance ? but we are not dealing with complexity of the coastline, which we would see, perhaps if we did it by region.   
+
+
+```{=openxml}
+# Inserting a word page break ... 
+<w:p>
+  </w:pPr>
+    <w:r>
+      <w:br w:type="page"/>
+    </w:r>
+</w:p>
+```
+
+
+
+
+
 ## Data processing steps
 
 All data structures are saved as .RData files. 
@@ -56,7 +641,7 @@ All data structures are saved as .RData files.
 ### IDE_Main.R
 
 **PART 1: Load, prep, and inspect all the data.**   
-	Includes Obs data w 100 m predictors; All IDS data; Regional 20 m predictors
+	Includes build data w 100 m predictors; All IDS data; Regional 20 m predictors
 	
 Data structures: *point.data, dive.20mIV, cam.20mIV, ROV.20mIV, obs.100mIV, obs.20mIV*  
 Standardized predictor names: *names.100m*  
@@ -98,433 +683,7 @@ Do the models predict better in areas of high source data density?
 
 **Part 7: Making the study area substrate predictions**  
 
-
 ====================================
-
-```{r, SetUp, echo=FALSE }
-#```{r code = readLines('substrate_functions.R')}
-
-# Load saved RF models ... 
-#load( file.path( model.dir, 'rf_allModels_2020-05-21-1019.RData' ))
-
-# Load build statistics and results ... 
-#load( file.path( model.dir, 'buildResults_2020-05-21-1019.RData' ))
-
-```
-
-
-```{=openxml}
-# Inserting a word page break ... 
-<w:p>
-  </w:pPr>
-    <w:r>
-      <w:br w:type="page"/>
-    </w:r>
-</w:p>
-```
-
-
-# Tables 
-
-Main results table summarizes build statistics.   
-
-```{r Build_Tables, echo=FALSE}
-library( knitr )
-
-#-- Main statistics don't make a very nice bar plot. Report as table. 
-T.cap <- "Table 1: Summary of model build results." 
-kable( build.sum$build.results.Integrated, digits=2, caption = T.cap )
-
-
-# Shrink font ... 
-# Will it be easier to format Caption OUTSIDE w pandoc or INSIDE w kable?
-# digits will need to be a vector if you want to use it (cuz N)
-
-# Create table of how 100 m coastal model predicts at regiona scale. 
-# REQUIRES test.regions to exist. 
-foo <- rbind( 
-    cbind( 'Region' = 'Coast', Results.Row( rf.region.Coast, test.regions$Coast )$Integrated), 
-    cbind( 'Region' = 'HG', Results.Row( rf.region.Coast,    test.regions$HG )$Integrated), 
-    cbind( 'Region' = 'NCC', Results.Row( rf.region.Coast,   test.regions$NCC )$Integrated),
-    cbind( 'Region' = 'WVVI', Results.Row( rf.region.Coast,  test.regions$WCVI )$Integrated), 
-    cbind( 'Region' = 'QCS', Results.Row( rf.region.Coast,   test.regions$QCS )$Integrated),
-    cbind( 'Region' = 'SOG', Results.Row( rf.region.Coast,   test.regions$SOG )$Integrated)
-  )
-rownames( foo ) <- NULL
-
-T.cap <- "Table 2: Performance of the 100 m model by region." 
-kable( foo, digits=2, caption = T.cap )
-```   
-   
-NOTES: Table 2 sample size is different from Table 1 because Obs data are separated using regional shape file, whereas in Table 1 points are selected based on regional, 20m rasters.   
-
-
-Table 2 shows that 100 m model performance is not skewed towards any particular region. That is, it doesn't fit the witheld data any better in one region over another.  
-
-Reasons for thinking processes not stationary: SOG = muddy, NCC = Fjords, WCVI/HG exposed   
-
-Quantity surprisingly low. Exchange potentially driven by Mixed. Can we understand this by looking at class-specific metrics?  
-
-
-
-```{r IDE_Tables, echo=FALSE}
-library( knitr )
-
-T.cap <- "Table 3: Performance of each model for each independent data set." 
-kable( IDE.Results.Table(), digits=2, caption = T.cap )
-
-
-T.cap <- "Table 4: Performance of bottom patch models for regions with large IDS samples." 
-kable( IDE.BoP, digits=2, caption = T.cap )
-
-# Build ANOVA from depth.results argument ... 
-
-# # Copied from IDE_Main.R ... 
-# names(depth.results)
-# cor( depth.results[, -c(1:3)] )
-# 
-# # replace TSS w other metrics to create results. 
-# a <- lm( TSS ~ Model + Region + Ribbon + N + Imbalance, data = depth.results )
-# summary(a)
-# anova( a )
-
-```   
-
-NOTES:  
-- Defer building ANOVA table until writing mostly done  
-
-
-
-
-# Figures - Part 1: Summary of model building
-
-## Heatmaps
-```{r Build_Heatmaps, echo=FALSE}
-
-#--- Heatmaps (tigures!) of build stats as png files from above csv files.
-library( superheat)
-
-# Library only makes pngs. Can call here, then use pandoc to load the png.
-# BUT: one of the two calls below plots the palette for some reason ... ?
-
-# Plot.Build.Class.Stats( build.sum$build.results.ByClass, pal.heat.10, 800, 600 )
-# Plot.Build.Var.Import( build.sum$build.results.VarImport, pal.heat.11, 1000, 600 )
-
-# Producer accuracy to be re-made with NO x-axis labels ... 
-# Then can lose the height= ... which doesn't seem to work? Neither does the fullwidth option :\
-
-```
-
-![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/heat_ProducerAccuracy_Build.png)
-![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/heat_UserAccuracy_Build.png)
-
-**Figure 1a/b: Heatmaps of class-statistics (User/Producer) across models**  
-
-```{=openxml}
-# Inserting a word page break ... 
-<w:p>
-  </w:pPr>
-    <w:r>
-      <w:br w:type="page"/>
-    </w:r>
-</w:p>
-```
-
-![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/heat_VariableImportance_Build.png){ fig.fullwidth=TRUE }
-
-**Figure 2: Heatmap of variable importance across models**  
-
-Importance is measured as the proportion of each predictor's contribution to each individual model, relative to the predticor with the maximum predictive power. (p/max(p)).  
-
-NA indicates that Fetch was not used as a predictor for the Coast model.  
-
-Also note that while there is a rank order, some of the predictors are very similar, e.g., NC has 4 predictors with virtually equal model contribution scores (0.5 and 0.51).  
-
-
-```{=openxml}
-# Inserting a word page break ... 
-<w:p>
-  </w:pPr>
-    <w:r>
-      <w:br w:type="page"/>
-    </w:r>
-</w:p>
-```
-
-
-```{r echo=FALSE, fig.width=10, fig.height=6, fig.fullwidth=TRUE}
-
-#-- Prevalence plots (obs & predicted) for build (testing partition), faceted by Region
-Plot.Obs.Pred.Prevalence.Build( build.sum$build.results.ClassPrev, pal.cb2 ) 
-# save plot to 'a' if using ggsave()
-# ggsave("Class Prevalence for Obs&Pred (Build) for Regions.png", a, dpi = 300, width = 16, height = 10, path = results.dir)
-
-```
-
-## Build results
-**Figure 3: Comparison of observed and predicted prevalence for the Obs testing partition, by class, across regions.**  
-
-
-Hard overpredicted in all regions.  
-
-
-```{=openxml}
-# Inserting a word page break ... 
-<w:p>
-  </w:pPr>
-    <w:r>
-      <w:br w:type="page"/>
-    </w:r>
-</w:p>
-```
-
-
-```{r echo=FALSE, fig.width=10, fig.height=6}
-#-- User and producer accuracies by class ... 
-Plot.Class.Stats.For.Regions( build.sum$build.results.ByClass, pal.cb2 )
-# save plot to 'a' if using ggsave()
-# ggsave( 'Class Stats (Build) for Regions.png', a, dpi = 300, width = 16, height = 10, path = results.dir)
-
-```
-
-**Figure 4: User and Producer accuracies for the Obs testing partition, by class, across regions.**
-
-
-First? Indication that Mixed is a bit of a problem  
-
-
-```{=openxml}
-# Inserting a word page break ... 
-<w:p>
-  </w:pPr>
-    <w:r>
-      <w:br w:type="page"/>
-    </w:r>
-</w:p>
-```
-
-
-```{r Depth_Results_TSS_by_Resolution, echo=FALSE, fig.width=10, fig.height=6, out.width='100%'}
-
-z <- depth.results2
-
-difTSS <- z[ z$Model == '100 m', ]$TSS - z[ z$Model == '20 m', ]$TSS
-z <- cbind( z, 'diffTSS' = difTSS)
-
-#Plot.TSS.By.Depth.For.Regions(  z[ , c('Model', 'Region', 'Ribbon', 'TSS')], pal.cb2 )
-Plot.TSS.By.Depth.For.Regions2( z[ , c('Model', 'Region', 'Ribbon', 'diffTSS')], pal.cb2[2] )
-
-#-- vs. What does a tigure look like? Not so good ... 
-# out.file <- 'TSS_byRibbon_byRegion_byModel.csv'
-# write.csv( depth.results[ , c("Model", "Region", "Ribbon", "TSS")], file = file.path(results.dir, out.file) )
-# 
-# Plot.Region.Class.Stats( 'TSS_byRibbon_byRegion_byModel.csv', '20 m', pal.10 )
-# Plot.Region.Class.Stats( 'TSS_byRibbon_byRegion_byModel.csv', '100 m', pal.10 )
-
-```
-
-**Figure 5: Performance of 20 and 100 m models against the Obs testing partition, across depth ranges, by region.**  
-
-Agreed 2020/06/18 that difference plot was a good idea. 
-```{=openxml}
-# Inserting a word page break ... 
-<w:p>
-  </w:pPr>
-    <w:r>
-      <w:br w:type="page"/>
-    </w:r>
-</w:p>
-```
-
-```{r Depth_Results_Obs_Pontius, echo=FALSE, fig.width=10, fig.height=6, out.width='100%'}
-
-z <- depth.results2[ depth.results2$Model == '20 m', ]
-
-Plot.Pontius.By.Depth.For.Regions( z, rev(pal.cb4) )
-
-
-```
-
-**Figure 6: Performance of 20 m models across depth ribbons, by region (Obs testing partition.**  
-
-
-
-## Figures - Part 2: Independent Data Evaluation
-
-```{r IDS_One, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
-# Depends on IDE.results created in main script. 
-#--- 1) Begin by looking at IDS sample sizes using perClass prevalences 
-x <- IDE.results$PerClass
-y <- x[ x$Stat == 'PrevObs', ]
-
-# Tidy the data a bit  ... 
-y <- x[ x$Stat == 'PrevObs', ] %>% subset(select = -c(Stat))
-colnames(y) <- c( 'Region', 'IDS', 'Rock', 'Mixed', 'Sand', 'Mud')
-rownames(y) <- NULL
-
-# fill in  blank data to balance plot ... 
-y <- rbind( y, data.frame( 'Region' = 'WCVI', 'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0),
-               data.frame( 'Region' = 'QCS',  'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0),
-               data.frame( 'Region' = 'SOG',  'IDS' = 'ROV', 'Rock'=0, 'Mixed'= 0, 'Sand'=0, 'Mud'=0) )
-
-Plot.Obs.By.IDS.For.Regions( y, pal.cb3, sz = 25, lx=0.83, ly=0.75 )
-
-```
-
-**Figure 6: Prevalence of Independent data sets by depth class, across regions. **  
-
-Agreed this will go in Supplemental Materials   
-
-
-```{=openxml}
-# Inserting a word page break ... 
-<w:p>
-  </w:pPr>
-    <w:r>
-      <w:br w:type="page"/>
-    </w:r>
-</w:p>
-```
-
-
-```{r IDS_Two, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
-
-# 3) Look at Integrated statistics for each IDS by Region.
-# Use a predetermined collection of stats (see function)
-
-# Again, start with a little data prep ... 
-
-y <- IDE.results$Integrated
-z <- y[ y$Region %in% c('Coast', 'HG', 'NCC'), ]
-rownames(z) <- NULL
-
-# This function can be used to generate various views of the data. 
-# 2020/05/25 DH preferred IDS as the grouping variable ... 
-a <- Plot.Stats.By.IDS.For.Regions( z, pal.cb3, sz = 25, lx=0.76, ly=0.87 )
-a
-
-# Saving hi res image for manuscript ... 
-#ggsave( paste0( 'Figure 8 - Integrated Stats by IDE for Regions.png'), a, dpi = 300, width = 16, height = 10, path = results.dir)
-```
-
-**Figure 7: Integrated statistics for Independent data sets by Region.**  
-
-The TSS for this figure, nominally on the scale [-1, +1], is re-scaled to for better comparison with the other statistics which range from [0, 1]. Reported value is (TSS+1)/2 to scale onto [0, 1].
-
-Cam/ROV better at predicting absence; but why? Look at producer/user accuracies.  
-
-ROV takes dominant class within each pixel.   
-
-Drop cam performance related to depth problem. Lat/lon not accurate because of deflection of camera from vessel.  ROV data corrected to some degree. Sampling bias.  
-
-Include some guidance on drop camera (and other?) data collection. Technical solutions, as well as sample design questions (e.g., how to generate an independent set fo effectively evaluate; e.g., can investigate the heterogeneity in a location. Point is that just cuz something is IDS doesn?t it is ?clean?.   
-
-Also, the close-to-shore challenge of matching the recorded depth to the bathymetric resolution.  Predictor resolution.  
-
-
-```{=openxml}
-# Inserting a word page break ... 
-<w:p>
-  </w:pPr>
-    <w:r>
-      <w:br w:type="page"/>
-    </w:r>
-</w:p>
-```
-
-```{r IDS_Three, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
-
-# What about TSS vs. Quantity and Allocation?
-# Remember: Accuracy = 1 – (Quantity + Exchange + Shift).
-
-y <- IDE.results$Integrated
-z <- y[ y$Region %in% c('Coast', 'HG', 'NCC'), ]
-
-z$Allocation <- z$Shift + z$Exchange
-z <- z[, c( 'Region', 'IDS', 'Accuracy', 'Quantity', 'Exchange','Shift' )]
-
-Plot.Pontius.By.IDS.For.Regions( z, rev(pal.cb4), sz = 25 )
-```
-
-**Figure 8: Pontius statistics for Independent data sets by region.**  
-
-
-As with 7, produce another that is by depth classes.   
-
-
-```{=openxml}
-# Inserting a word page break ... 
-<w:p>
-  </w:pPr>
-    <w:r>
-      <w:br w:type="page"/>
-    </w:r>
-</w:p>
-```
-
-
-```{r IDS_By_Ribbon_A, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
-# Pontius stats (Accuracy, Quantity, Exchange, Shift) for IDS, by ribbon, 
-# one plot for each region.
-# Remember: Accuracy = 1 – (Quantity + Exchange + Shift).
-
-z <- IDE.depths[ IDE.depths$Region == 'Coast', c( 'IDS', 'Ribbon', 'Accuracy', 'Shift','Exchange','Quantity' )]
-Plot.Pontius.By.IDS.Depth.For.Regions( z, rev(pal.cb4), sz = 25 )
-```  
-**Figure 9a: Pontius statistics for Independent data sets by depth ribbon - Coastwide.**  
-
-
-```{r IDS_By_Ribbon_B, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
-z <- IDE.depths[ IDE.depths$Region == 'HG', c( 'IDS', 'Ribbon', 'Accuracy', 'Shift','Exchange','Quantity' )]
-Plot.Pontius.By.IDS.Depth.For.Regions( z, rev(pal.cb4), sz = 25 )
-```  
-**Figure 9b: Pontius statistics for Independent data sets by depth ribbon - Haida Gwaii.**  
-
-```{r IDS_By_Ribbon_C, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
-z <- IDE.depths[ IDE.depths$Region == 'NCC', c( 'IDS', 'Ribbon', 'Accuracy', 'Shift','Exchange','Quantity' )]
-Plot.Pontius.By.IDS.Depth.For.Regions( z, rev(pal.cb4), sz = 25 )
-```  
-**Figure 9c: Pontius statistics for Independent data sets by depth ribbon - North Central Coast.**  
-
-
-```{=openxml}
-# Inserting a word page break ... 
-<w:p>
-  </w:pPr>
-    <w:r>
-      <w:br w:type="page"/>
-    </w:r>
-</w:p>
-```
-
-```{r Prevalences, echo=FALSE, fig.fullwidth=TRUE }
-#-- Plots the Study Area prevalence results. Requires the map.prev structure. 
-Plot.Pred.Map.Prevalence( map.prev, build.sum, pal.RMSM)
-
-
-```
-
-**Figure 10: Comparison of prevalence in predictions between fitted model (points) and study area (Map).**    
-
-
-Mapped prevalences are a reasonable reflection of true prevalences by region  
-
-Appeal to author experience. And also technical argument why this would be so. e.g., stationarity across process; we know there is sample bias, would be disturbing to see that reflected in the predicted surface. Shows model is working! And that RF method is dealing well with prevalence.   
-
-Include illustration of value of wtd RF. Good conclusion, emphasizing the importance of dealing with prevalence in models. Table/Fig for suppl. Materials.  
-
-Standardize terminology with earlier figure that compares build/test prevalences   
-
-
-```{=openxml}
-# Inserting a word page break ... 
-<w:p>
-  </w:pPr>
-    <w:r>
-      <w:br w:type="page"/>
-    </w:r>
-</w:p>
-```
 
 # Development Notes
 
@@ -534,8 +693,12 @@ Generates plots from existing data objects in the environment, and code chunks a
 
 Next step is to more clearly separate object production, saving, and loading, from figure production. Significant rebuild. While full reproducibility means code chunks should do all the work, not super practical at this point. 
 
-For Knitr to see the existing objects, need to run knitr in the gobal environment:   
-  Run rmarkdown::render("substrate_figures.Rmd") from console.
+For Knitr to see the existing objects, need to run knitr in the gobal environment (console):   
+
+x <- substr(  Sys.time(), 1, 10)
+rmarkdown::render( "substrate_figures.Rmd", 
+  output_file = paste0('SubstrateFigures_', x ),
+  output_dir = results.dir ) 
 
 
 Is it best to put captions in the code block, or in the text sections?   
