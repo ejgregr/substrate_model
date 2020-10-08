@@ -1,23 +1,12 @@
 #*******************************************************************************
 # Script:  IDE_main.R
 # Created: January 2020. EJG
-# Updated: 2020/09/04 EJG (updates now intermittently detailed in README.md)
+# Updated: 2020/10/06 EJG (updates now intermittently detailed in README.md)
 #
-# This first script in the set:  
-#   1: Loads all the observational data
-#   2: Load predictors onto the observations
-#   3: Build the necessary RF models
-#   4: Compare the various models and IDE sets 
+# This script sources the necessary libraries and functions, then uses flags to 
+# either loads results from saved Rdata files, or import and analyse raw data. 
+# The data build/loaded here gets picked up by th R markdown file.
 
-# Subsequent scripts: depth_effect.R, sample_effect.R, model_summaries.R.
-# Supporting scripts: substrate_functions.R, Plot_Functions.R
-
-# NOTES:
-#   2020/04/09: sample_effect.R DEFERRED UNTIL SUBSTRATE PAPER COMPLETE
-#   2020/06/15: re-structure with all plotting happening in RMD file. 
-#     This script now makes data structures and write CSV summaries, picked up by RMD.
-#     The process is documented in the RMD.
-#
 #*******************************************************************************
 
 rm(list=ls(all=T))  # Erase environment.
@@ -27,8 +16,8 @@ source( "substrate_functions.R" )
 #source( "depth_effect.R" )
 source( "Plot_Functions.R" )
 
-#-- This will re-load all the data and re-build the RF models ... 
-#  **** FIX this so it doesn't necessarily re-do all the plots. ****
+# When set to true, the data structure will be re-built from imported data. 
+# THere is a dependency, so if the RF models are re-built, the analysis also needs to be redone.
 
 # Parameters for the re-build ... 
 reloadpts  <- F
@@ -209,13 +198,6 @@ IDE.results.nowt <- IDS.Evaluation( 'nwrf' )
 # c <- Plot.ClassStats.IDE( y, 'Reliability', pal.cb3b, sz=30, lx=0, ly=0 )
 
 
-
-# This function can be used to generate various views of the data. 
-# 2020/05/25 DH preferred IDS as the grouping variable ... 
-# 2020/08/23 Standardized them all as the difference from random baseline
-Plot.Stats.By.IDS.For.Regions( z, pal.cb3b, sz = 25, lx=0.85, ly=0.87 )
-
-
 #-- IDS test results across depth ribbons by region. 
 # Used to plot of Pontius stats 
 # 2020/07/22: Modified the Fit function to use the extended depth zones. 
@@ -238,60 +220,9 @@ IDE.depths <- rbind(
 )
 
 
-#-- Assess BoP performance on IDS data by region.
-# 2020/07/22: Some ugliness in this function including
-#   Hard-coding of the region, needed to overcome the factoring of the names
-#   Regions w low IDE sample size have 0 values in some classes
-#   BoPs are drawn from an unrelated directory
-
-if ( boptests == F ){
-  
-# Pre-build QCS and SOG ... 
-  a <-  Build.IDE.BoP.Results('QCSSOG_BoPs_v1.0.gdb', 'BoP18_merged', 'Queen Charlotte Strait')
-  a$Region <- substr( a$Region, 1, 3)  
-  
-  b <-  Build.IDE.BoP.Results('QCSSOG_BoPs_v1.0.gdb', 'BoP18_merged', 'Strait of Georgia')
-  b$Region <- substr( b$Region, 4, 6)  
-
-# Now combine with the other regions ...   
-  IDE.BoP <- rbind( 
-    Build.IDE.BoP.Results('HG_BoPs_v2.gdb',    'BoP18_merged_again', 'Haida Gwaii'),
-    Build.IDE.BoP.Results('NCC_BoPs_v1.1.gdb', 'BoP18_merged', 'North Central Coast'),
-    Build.IDE.BoP.Results('WCVI_BoPs_v1.gdb', 'BoPs', 'West Coast Vancouver Island'),
-    a, b
-  )  
-
-  # Sort rows by IDS first then Region ... 
-  IDE.BoP <- IDE.BoP[ order( IDE.BoP$IDS ), ]
-  rownames( IDE.BoP ) <- NULL
-
-  # NOTE: Regional name corrections for 'QCSSOG_BoPs_v1.0.gdb' done manually. 
-  
-  x <- substr( Sys.time(), 1, 10)
-  save( IDE.BoP, file = file.path( model.dir, paste0('BoP_test_', x, '.RData')) )
-    
-} else {
-  
-  load( file.path( model.dir, 'BoP_test_2020-09-01.RData' ))
-}
-  
-
-
-
-
-
-##################################################################
-#------------ rMarkdown separation complete to here ------------
-
-
-  
-  
-  
-  
-  
 
 #=============================================
-#-- Part 7 - Spatial substrate predictions ... 
+#-- Part 6 - Spatial substrate predictions ... 
 #-- Create study area-wide predictions so that can compare prevalence of 
 # study area prediction to training data ... 
 

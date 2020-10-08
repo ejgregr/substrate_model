@@ -407,6 +407,7 @@ Plot.Pontius.By.Depth.For.Regions <- function( df, apal, sz=20 ){
 
 #-------------- FACETED IDE Statistics --------------------
 
+
 #--------------------------------------------------------
 #-- Simple facet of the sample size by region for context.
 Plot.Obs.By.IDS.For.Regions <- function( df, apal, sz = 20, lx=0, ly=0 ){
@@ -444,43 +445,11 @@ Plot.Obs.By.IDS.For.Regions <- function( df, apal, sz = 20, lx=0, ly=0 ){
 #-- Integrated Statistics by IDS faceted by Region
 # Statistics are hard-coded as list of 3.
 # Params: sz used to set text size; lx, ly set position of legend
-Plot.Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
-  
-  x <- df[, c( 'Region', 'IDS', 'TSS', 'Accuracy', 'TNR' )]
-  
-  # Adjust for different random baselines
-  x$TSS <- x$TSS - 0.5
-  x$Accuracy <- x$Accuracy - 0.25
-  x$TNR <- x$TNR - 0.75
-  
-  names(x) <- c( 'Region', 'IDS', 'TSS', 'Accuracy', 'Specificity' )
-  
-  foo <- melt( x, id.vars = c('Region','IDS') )
-  
-  a <- foo %>%
-    ggplot(aes(x = IDS, y = value, fill = variable)) +
-    geom_bar(stat = "identity", width = .6, position = "dodge") +
-    labs( x = NULL, y = 'Score' ) +
-    facet_grid(. ~ Region) +
-    
-    theme_bw() +
-    theme(text         = element_text( size=sz ), 
-          axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.4),
-          
-          # legend stuff          
-          legend.position = c(lx, ly),
-          legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
-          
-    ) +
-#    scale_fill_manual(name = 'Independent\ntest data',
-    scale_fill_manual(name = 'Metric',
-                      values = apal)
-  
-  return( a )
-}
+# This function can be used to generate various views of the data. 
+# 2020/05/25 DH preferred IDS as the grouping variable ... 
+# 2020/08/23 Standardized them all as the difference from random baseline
 
-
-Plot.TSS.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
+#Plot.TSS.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
   
   x <- df[, c( 'Region', 'IDS', 'Model', 'TSS' )]
   
@@ -512,6 +481,42 @@ Plot.TSS.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
 }
 
 
+# Params: sz used to set text size; lx, ly set position of legend
+Plot.Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
+  
+#  x <- df[, c( 'Region', 'IDS', 'TSS', 'Accuracy', 'TNRWtd' )]
+  x <- df[, c( 'Region', 'IDS', 'TSS', 'Accuracy', 'TNR' )]
+  
+  # Adjust for different random baselines
+  x$TSS <- x$TSS - 0.5
+  x$Accuracy <- x$Accuracy - 0.25
+  x$TNR <- x$TNR - 0.75
+  
+#  names(x) <- c( 'Region', 'IDS', 'TSS', 'Accuracy', 'Specificity' )
+  
+  foo <- melt( x, id.vars = c('Region','IDS') )
+  
+  a <- foo %>%
+    ggplot(aes(x = IDS, y = value, fill = variable)) +
+    geom_bar(stat = "identity", width = .6, position = "dodge") +
+    labs( x = NULL, y = 'Score' ) +
+    facet_grid(. ~ Region) +
+    
+    theme_bw() +
+    theme(text         = element_text( size=sz ), 
+          axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.4),
+          
+          # legend stuff          
+          legend.position = c(lx, ly),
+          legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
+          
+    ) +
+    #    scale_fill_manual(name = 'Independent\ntest data',
+    scale_fill_manual(name = 'Metric',
+                      values = apal)
+  
+  return( a )
+}
 
 
 #------------------------------------------------
@@ -565,7 +570,10 @@ Plot.Pred.Map.Prevalence <- function( maprev, bs, pal){
   a <- rbind( maprev$Coast2, maprev$HG2, maprev$NCC2, maprev$WCVI2, maprev$QCS2, maprev$SOG2 )
   colnames( a ) <- c('Hard','Mixed','Sand','Mud')
   a <- a/100
-  a <- cbind( Region = c('Coast','HG','NCC','WCVI','QCS','SOG'), data.frame(a) )
+  b <- factor( c('Coast','HG','NCC','WCVI','QCS','SOG'), 
+               levels = c('Coast','HG','NCC','WCVI','QCS','SOG') )
+  
+  a <- cbind( Region = b, data.frame(a) )
   a <- cbind( Stat = 'Map', a )
   
   # Pull prediction results from build results

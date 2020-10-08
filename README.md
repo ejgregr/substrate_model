@@ -1,6 +1,6 @@
 # substrate_model
 Repository created: 2020/02/20
-Updates: Continuous thru 2020/09/03
+Updates: Continuous thru 2020/10/06
 Version: R version 3.6.2 x64
 
 CONTACT
@@ -14,16 +14,25 @@ This project uses a coast-wide data set of observations to build random forest m
 
 To load/run the model:
 
-1) From IDE_Main.R, source substrate_functions.R and Plot_Functions.R
-2) Load the 4 RData files. 
-3) Re-build the summary data structures
-4) Run the RMarkdown script (from the console so the environment is visible)
+1) Source IDE_Main.R after setting the flags at the top of the script.
+    Flags determine whether results are loaded from rData files, or imported and re-built from scratch (time consuming).
+    Ensure rData files and the source data are available and pathed correctly, as needed.
+2) Run the RMarkdown script (from the console so the environment is visible)
 
 
 UPDATES
 
+Oct 2020
+Figures and tables for manuscript finalized. Main revisions include: 
+Bottom patch analysis dropped; RMD file heavily revised:
+  Suppl table dropped (class-based TPR/TNR for all regions comparing weighting (its Fig. 2).
+  Standardize table content, table and figure numbers.
+
+
+
+
 Sept 2020
-Been awhile. Rmd now being used to organise all R-generated tables and figs. And also to link in figs (pngs) made elsewhere.
+Rmd now being used to organise all R-generated tables and figs. And also to link in figs (pngs) made elsewhere.
 Loading or re-building of analytic data frames now automated. Just run IDE_Main.R and go ... hopefully. 
 Added analysis of non-weighted model, and IDS evaluation of BoPs.
 Writing to CSV files removed. 
@@ -37,6 +46,7 @@ More plots added; Palettes turned CB friendly and standardized.
 
 June 2020 (a)
 Getting close to finalizing figures. Integrated code from Cole to generate and plot predictions. Having trouble plotting these from the saved results. Other than that, just need to adjust/standardize colour palettes, and tweak some plots.
+- 2020/06/15: re-structured to place all plotting in RMD file. 
 
 May 2020 
 Deep cleaning of data loading and model preparation after code review with Sarah Davies (@sare-ah). This included loading data straight from the shape files provided; centralizing most of the attribute manipulation; purged unncessary functions, data structures, and code; updated some function documentation. Any older stuff that breaks as a result would likely need to be re-written anyway. 
@@ -66,6 +76,10 @@ NOTES:
    Always order parameters as (predicted, observed)
 - ranger() has inbag.counts - do we need to calculate our own OOB error?
 - Standardize SIGNS on the 100 m and 20 m bathymetries. Currently flipping sign on 20 m during data load.
+- 2020/04/09: sample_effect.R DEFERRED UNTIL SUBSTRATE PAPER COMPLETE
+
+
+
 
 -------------------------------------------------------------------------------
 Description of data processing/analysis
