@@ -16,145 +16,124 @@ source( "substrate_functions.R" )
 #source( "depth_effect.R" )
 source( "Plot_Functions.R" )
 
-# When set to true, the data structure will be re-built from imported data. 
-# THere is a dependency, so if the RF models are re-built, the analysis also needs to be redone.
 
-# Parameters for the re-build ... 
+#--------------------------------------------------------------------------
+#-- Part 1. Load Source Points and Results 
+
+# Processsing FLAGS. When set to true, the data structure will be re-built from imported data. 
+# Otherwise, it will be loaded from rData. 
+# THere are dependencies, e.g., if the RF models are re-built, the analysis  needs to be redone.
+
+# Parameters to the re-build ... 
 reloadpts  <- F
 wtdrngr    <- F
 nowtrngr   <- F
-trimrngr   <- F
-mapplots   <- F
-boptests   <- F
+makeheat   <- F
+mapplots   <- T
 
+#---- Step 1 of 2: Load the things that don't need to be built ... 
 
-#======= Load Data and Results =================
+#-- RData file names:
+data.files <- list(
+  pts        = 'loaded_data_2020-08-10.RData',
+  modelsWtd  = 'rf_allModels_2020-08-24.RData',
+  buildRes   = 'buildResults_2020-08-24.RData',
+  predMaps   = 'rasterMapObjects_2020-06-29.RData',
+  modelsNoWt = 'nwrf_allModels_2020-09-02.RData',
+  buildResNW = 'nwbuildResults_2020-09-02.RData'
+)
 
-#----------------------
-#-- Part 1: Source data
-
+# 1) Source data
 if (reloadpts == F){
 #-- Load existing observational data .. 
-  load( file.path( model.dir, 'loaded_data_2020-08-10.RData' ))
+  load( file.path( model.dir, data.files[["pts"]] ))
 # point.data - All the point observations from ArcGIS. 
 # obs.100mIV
 # obs.20mIV, dive.20mIV, cam.20mIV, ROV.20mIV
 # names.100m
 }
-#---------------------------------------
-#-- Part 2: RF Models and Build results. 
 
+# 2): RF Models and Build results. 
 if (wtdrngr == F){
   #-- Load the latest RF models (This is a BIG file) ... 
-  load( file.path( model.dir, 'rf_allModels_2020-08-24.RData' ))
+  load( file.path( model.dir, data.files[["modelsWtd"]] ))
   # rf.region.Coast, rf.region.HG, rf.region.NCC, rf.region.WCVI, rf.region.QCS, rf.region.SOG
 
   #  Also want the associated build statistics and results ... 
-  load( file.path( model.dir, 'buildResults_2020-08-24.RData' ))
+  load( file.path( model.dir, data.files[["buildRes"]] ))
   # build.results
 }
 
 if (nowtrngr == F){
   #-- Load the latest RF models (This is a BIG file) ... 
-  load( file.path( model.dir, 'nwrf_allModels_2020-09-02.RData' ))
+  load( file.path( model.dir, data.files[["modelsNoWt"]] ))
   # rf.region.Coast, rf.region.HG, rf.region.NCC, rf.region.WCVI, rf.region.QCS, rf.region.SOG
   
   #  Also want the associated build statistics and results ... 
-  load( file.path( model.dir, 'nwbuildResults_2020-09-02.RData' ))
+  load( file.path( model.dir, data.files[["buildResNW"]] ))
   # build.results
 }
-
-if (trimrngr == F){
-  #-- Load the latest RF models (This is a BIG file) ... 
-  load( file.path( model.dir, 'trm_allModels_2020-08-31.RData' ))
-  # rf.region.Coast, rf.region.HG, rf.region.NCC, rf.region.WCVI, rf.region.QCS, rf.region.SOG
-  
-  #  Also want the associated build statistics and results ... 
-  load( file.path( model.dir, 'trmbuildResults_2020-08-31.RData' ))
-  # build.results
-}
-
-#build.results$Coast.stats[2]
-#build.results$WCVI.stats[1]
-
 
 #-------------------------------------------
-#  Load the predicted rasters and prevalences (map.pred) ... 
+#  Load the predicted rasters and prevalences (map.prev) ... 
 if (mapplots == F){
-  load( file.path( model.dir, 'rasterMapObjects_2020-06-29.RData' ))
+  load( file.path( model.dir, data.files[["predMaps"]] ))
 }
 
+# end of data/results load
 
-#-- Build any data/results not loaded above (uses the same flags) ... 
+#---------------------------------------------------------------------------------
+#-- Step 2 of 2: Source the build script to build any flagged results/objects.
 source( "build_substrate.R" )
 
 
-#------------------------------------------------------------
-#-- Part 3: Create data summaries for tables and figures.
-build.sum <- Summarize.Build( build.results )
-# BOTH as csv files and data frames.
-#   Build_results_Integrated.csv - build.results.Integrated
-#   Build_results_byClassStats.csv - build.results.ByClass
-#   Build_results_testPrevalence.csv - build.results.ClassPrev
-#   Build_results_varImportance.csv - build.results.VarImport
-#   CSVs are good for tables but lose useful DF bits ... 
+#--------------------------------------------------------------------------
+#-- Part 2. Summarize Results 
 
-# REPRODUCE the above to create the no-weight build summaries. 
+build.sum <- Summarize.Build( build.results )
+
+#----
+# Duplicate the above to summarize the no-weight build. 
 build.sum.nw <- Summarize.Build( build.results.nw )
 
-# Just take the integrated stats for the trimmed build summaries for now. 
-trm.build.sum <- rbind( 
-  cbind( 'Region' = 'Coast', data.frame( trm.build.results$Coast.stats[ 1 ] ) ),
-  cbind( 'Region' = 'HG',    data.frame( trm.build.results$HG.stats[ 1 ] ) ),
-  cbind( 'Region' = 'NCC',   data.frame( trm.build.results$NCC.stats[ 1 ] ) ),
-  cbind( 'Region' = 'WCVI',  data.frame( trm.build.results$WCVI.stats[ 1 ] ) ),
-  cbind( 'Region' = 'QCS',   data.frame( trm.build.results$QCS.stats[ 1 ] ) ),
-  cbind( 'Region' = 'SOG',   data.frame( trm.build.results$SOG.stats[ 1 ] ) )
-)
-    
-  
-#--------------------------------------------------------------------------
-#---Part 4: Model resolution tests 
 
-#-- 4a: Test how the 100m model performs at the regional scale
+#--------------------------------------------------------------------------
+#-- Part 3. Model resolution tests
+
+#-- A) How does the 100m model perform at the regional scale?
  
 # First separate the Obs testing data by region. 
 test.regions <- Partition.Test.Data( point.data$Obs[ point.data$Obs$TestDat == 1, ] )
 
-# Test results tabulated in the RMD file.
+#-- B) How do the two model resolutions compare across depths?
+#   Assess ribbons within each region
+
+# 1) Test the 100 m model by depth  within each region. 
+# 2) Test the regional models; each using its own 20 m Obs testing data.
+# test.regions contain the 100 m test data partitioned above. 
+
+depth.results <- Models.Across.Depths( test.regions )
 
 
-#------------------------------------------------------------------
-#-- 4b: Test how the two model resolutions compare across depths.
-#     Assess ribbons within each region
-
-# First test the 100 m model by ribbon within each region. 
-# Then test the regional models; each model uses its own 20 m Obs testing data.
-# test.regions are the 100 m test data partitioned above. 
-#-- Also writes CSV of results.
-
-depth.results <- Models.Across.Ribbons( test.regions )
-
-
-#--------------------------------------------
-# Build the Heat maps 
+#-------------------------------------------------------------------
+#-- Part 4 - Build the Heat maps 
 #  Needs to be done here cuz behaviour is odd in the RMD file ... 
 
+if (makeheat == T){
+  
+  Heat.Build.Class.Stats( build.sum$build.results.ByClass, T, 'TPR', rev( pal.heat.10 ), 800, 600, 'black' )
+  Heat.Build.Class.Stats( build.sum$build.results.ByClass, T, 'TNR', rev( pal.heat.10 ), 800, 600, 'black' )
+  Heat.Build.Class.Stats( build.sum$build.results.ByClass, T, 'User', rev( pal.heat.10 ), 800, 600, 'black' )
+  
+  Heat.Build.Class.Stats( build.sum.nw$build.results.ByClass, F, 'TPR', rev( pal.heat.10 ), 800, 600, 'black' )
+  Heat.Build.Class.Stats( build.sum.nw$build.results.ByClass, F, 'TNR', rev( pal.heat.10 ), 800, 600, 'black' )
+  Heat.Build.Class.Stats( build.sum.nw$build.results.ByClass, F, 'User', rev( pal.heat.10 ), 800, 600, 'black' )
+  
+  Heat.Build.Var.Import( build.sum$build.results.VarImport, pal.heat.11, 1000, 600, 'black' )
+}
 
-Heat.Build.Class.Stats( build.sum$build.results.ByClass, T, 'TPR', rev( pal.heat.10 ), 800, 600, 'black' )
-Heat.Build.Class.Stats( build.sum$build.results.ByClass, T, 'TNR', rev( pal.heat.10 ), 800, 600, 'black' )
-Heat.Build.Class.Stats( build.sum$build.results.ByClass, T, 'User', rev( pal.heat.10 ), 800, 600, 'black' )
-
-Heat.Build.Class.Stats( build.sum.nw$build.results.ByClass, F, 'TPR', rev( pal.heat.10 ), 800, 600, 'black' )
-Heat.Build.Class.Stats( build.sum.nw$build.results.ByClass, F, 'TNR', rev( pal.heat.10 ), 800, 600, 'black' )
-Heat.Build.Class.Stats( build.sum.nw$build.results.ByClass, F, 'User', rev( pal.heat.10 ), 800, 600, 'black' )
-
-
-Heat.Build.Var.Import( build.sum$build.results.VarImport, pal.heat.11, 1000, 600, 'black' )
-
-
-#--------------------------------------------------------------------
-#-- Some regression to see what's driving the different metrics  ... 
+#--------------------------------------------------------------
+#-- Regression to see what's driving the different metrics  ... 
 #   Have tested with/without N and Imbalance. No change. 
 #   REPLACE TSS with other metrics to create the results 
 
@@ -180,7 +159,7 @@ Heat.Build.Var.Import( build.sum$build.results.VarImport, pal.heat.11, 1000, 600
 #   is it necessary to drop them out of the Coast evaluation here? Prob not. Just don't get used.
 
 IDE.results.wtd  <- IDS.Evaluation( 'rf' )
-IDE.results.trm  <- IDS.Evaluation( 'trm' )
+# IDE.results.trm  <- IDS.Evaluation( 'trm' )
 IDE.results.nowt <- IDS.Evaluation( 'nwrf' )
 
 
@@ -198,6 +177,7 @@ IDE.results.nowt <- IDS.Evaluation( 'nwrf' )
 # c <- Plot.ClassStats.IDE( y, 'Reliability', pal.cb3b, sz=30, lx=0, ly=0 )
 
 
+#-------------------------------------------------------------
 #-- IDS test results across depth ribbons by region. 
 # Used to plot of Pontius stats 
 # 2020/07/22: Modified the Fit function to use the extended depth zones. 
@@ -219,43 +199,4 @@ IDE.depths <- rbind(
   )
 )
 
-
-
-#=============================================
-#-- Part 6 - Spatial substrate predictions ... 
-#-- Create study area-wide predictions so that can compare prevalence of 
-# study area prediction to training data ... 
-
-
-#----- Plot the Study Area prevalence results ------
-
-# Prepare the prevalence tables for each region, knock into shape, and ggplot() ... 
-# Called by RMD: 
-#   Plot.Pred.Map.Prevalence( map.prev, build.sum)
-
-
-#---- Manual plotting of predicted tifs ----
-plotme<-F
-
-if (plotme == TRUE) {
-  a <- raster( file.path( raster.dir, 'WCVI_classified_substrate.tif' ))
-
-  #-- This works ok, but image has much poorer resolution than TIF loaded into ArcGIS ... 
-  #   Try bumping up the bits ... 
-  
-  # original parameters ... 
-  #   height = 7, width = 6, units = "in", res = 400)
-  #   plot(a, maxpixels=5000000, col=pal.RMSM, legend=FALSE,
-       
-  # Map (up to 5,000,000 pixels)
-  png( file=file.path( raster.dir, "TIF test.png"),
-      height = 14, width = 12, units = "in", res = 600)
-  plot(a, maxpixels=10000000, col=pal.RMSM, legend=FALSE,
-       xlab = "Easting", ylab = "Northing", cex.axis = .5, cex.lab = .75)
-  legend(x = "bottomleft",
-         legend = c("Rock", "Mixed", "Sand", "Mud"), 
-         fill = pal, title= NA, bg = NA, box.col = NA)
-  
-  dev.off()
-}
 #-- FIN.

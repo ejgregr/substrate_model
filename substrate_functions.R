@@ -12,11 +12,8 @@
 #  - 2020/05/10: All unused code removed. Includes Rand.Ranger.Model and its associated functions
 # like Summary.Row(), Wtd.Stats, ...
 
-#----------------------------------------------------------------------------
 
-
-#----------------------------------------------------------------------------
-#-- Load packages using neat loading code from Cole ... 
+#================================== Load require packages =================================
 
 # check for any required packages that aren't installed and install them
 required.packages <- c("superheat", "ggplot2", "reshape2", "tidyr","dplyr", 
@@ -36,8 +33,7 @@ lapply(required.packages, require, character.only = TRUE)
 #lapply(required.packages, library, character.only = TRUE)
 
 
-#----------------------------------------------------------------------------
-#-- Data sources and other constants ...  
+#=========================== Data sources and constants =====================================
 
 #-- As per Cole's reporting code, set an output directory and initiate the log file.
 #       Directory will be created if doesn't exist; file will be overwritten if it does.
@@ -69,9 +65,6 @@ coast.formula <- "BType4 ~ bathy + broad_BPI + circulation + curvature + fine_BP
 # proj4 string for albers projection with NAD83 datum
 spat.ref <- '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +datum=NAD83 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0'
 
-#-- Log file to be placed in output.directory 
-log.file <- 'IDE_test_log.txt'
-
 #-- Relevant RF constants. (Had 2 imps but one was for Random Forest)
 RFC <- list( 'ntree'=1000, 'repl'=TRUE, 'imp'='impurity', 'test.frac'=0.6 )
 
@@ -84,11 +77,8 @@ drop.list <- c('BT_Sorc','Rock','X','Y')
 z.breaks <- c( -1000, 0, 5, 10, 20, 50, 100, 200, 5000)
 z.ribs   <- c('ITD', '0-5', '5-10', '10-20', '20-50', '50-100', '100-200', '200+')
 
-#============================================================================
-#-- Functions.   
 
-#=============== ANALYSIS ===================
-
+#===================================== Functions =========================================
 
 #---------------------------------------------------------------------------------------
 # Builds a random forest model using ranger() using the provided train and test samples.
@@ -116,7 +106,6 @@ Wtd.Ranger.Model <- function( x.train, x.test, x.formula ){
   return( list( 'Stats' = out.table, 'Model' = x.model ))
 }
 
-
 NoWt.Ranger.Model <- function( x.train, x.test, x.formula ){
   
   out.table <- NULL
@@ -132,7 +121,6 @@ NoWt.Ranger.Model <- function( x.train, x.test, x.formula ){
   
   return( list( 'Stats' = out.table, 'Model' = x.model ))
 }
-
 
 #-----------------------------------------------------------------------------------------------
 # Calculate statistics for a given RF model (testModel) and test set of observations (testData). 
@@ -177,7 +165,6 @@ Results.Row <- function( testModel, testData, paired = F, mant = 3 ){
   return( list( 'Integrated' = out1, 'PerClass' = t(out2) ))
 }
 
-
 #----------------------------------------------------------------
 #-- Calculate the True Skill Statistic for a 4x4 matrix following
 #   Allouche et al. 2006. Applies 2 steps - first calculates the 
@@ -213,37 +200,15 @@ TSS.Calc <- function( cTable, scaleOut = F ){
     
 }
 
-
-# #-- Testing TSS Calculation ...
-# test <- matrix( c(10,0,0,0, 0,10,0,0, 0,0,10, 0, 0, 0, 0, 10), 4, 4 )
-# test <- matrix( c(.25,0,0,0, 0,.25,0,0, 0,0,.25, 0, 0, 0, 0, .25), 4, 4 )
-# 
-# #-- A simplee bad model ...
-# test <- matrix( c(0,10,0,0, 0,0,0,10, 10,0,0,0, 0,0,10,0), 4, 4 )
-# 
-# #-- Shouldn't these have greater badness?
-# test <- matrix( c(0,100,0,0, 0,0,0,10, 10,0,0,0, 0,0,10,0), 4, 4 )
-# test <- matrix( c(0,33,33,34, 10,0,10,10, 10,10,0,10, 10,10,10,0), 4, 4 )
-# 
-# test
-# TSS.Calc(test)
-# 
-# #-- Random matrix has values around 0 which is good ...
-# test <- matrix( sample(1:100, 16), 4, 4)
-# TSS.Calc(test)
-# 
-
-
 #------------------------------------------------------------------
 #-- Calculate the quantity and allocation components of the matrix.
 #   Uses diffeR package and follows Pontius and Santacruz (2014).
 # Returns: A one-row data.frame of named statistics
 # Takes:   a caret contingency table
 # Assumes: 4x4 matrix
-# Notes:   This will need to be updated based on detailed review of the 
-#   available statistics and Stehman and Foody (2019).
-#   diffTablej() returns Omission, Agreement, Comission, Quantity, Exchange, and Shift metrics
-#     by classes and overall.
+# Notes: Metric names cross-referenced with Stehman and Foody (2019).
+# diffTablej() returns Omission, Agreement, Comission, Quantity, Exchange, and Shift metrics
+#   by classes and overall.
 diffr.Stats <- function( cTable ){
   
   # First need to convert to something called a ctmatrix
@@ -260,16 +225,6 @@ diffr.Stats <- function( cTable ){
   out <- y[ y$Category == 'Overall', -1 ]
   return( out[ c('Quantity', 'Exchange', 'Shift') ] ) #return desired stats and order
 }
-
-
-# #-- Testing diffeR stats ... 
-# z <- caret::confusionMatrix( rf.region.HG$predictions, train.data.20m$HG$BType4)
-# diffr.Stats( z$table )
-# 
-# x <- matrix( z$table, 4,4 )
-# rownames( x ) <- c(1,2,3,4); colnames( x ) <- c(1,2,3,4)
-# y <- diffTablej( x, digits = 0, analysis = "error" )
-
 
 #----------------------------------
 #-- Calculate the imbalance in prevalence.
@@ -293,7 +248,6 @@ Prev.Balance <- function( plist ){
   return( as.numeric( tot/denom ))
 }
 
-
 #----------------------------------
 # Function to predict a raster surface, write to disk, and export a png of the surface
 # env.predictors: raster stack of environmental predictors, ranger.model: model object, output.directory: path to output
@@ -307,9 +261,11 @@ Predict.Surface <- function(env.predictors, ranger.model, output.directory, nm, 
                                 progress = 'text',
                                 fun = function(model, ...) predict(model, ...)$predictions)
   
-# write raster file to disk
+  x <- substr( Sys.time(), 1, 10)
+  
+  # write raster file to disk
   writeRaster(raster.obj, file.path(output.directory, 
-                                    paste0(nm, '_classified_substrate.tif')), 
+                                    paste0(nm, '_classified_substrate_', x, '.tif')), 
                                     format = 'GTiff', datatype = 'INT2S', overwrite = TRUE)
   
 # generate table of proportions for each class in predicted raster
@@ -331,7 +287,6 @@ Predict.Surface <- function(env.predictors, ranger.model, output.directory, nm, 
   
   return(list(raster.obj, raster.prop))
 }
-
 
 #---------------------------------------------------------------------------------------------
 # For the provided sample: 1) partition the data; 2) build train model, 3) build a full model
@@ -370,7 +325,6 @@ Test.Sample.Size <- function( obs, howMany, part, theForm ){
   }
   return( results ) 
 }
-
 
 #---------------------------------------------------------------------------------------------
 # For the provided sample: 1) partition the data ranging from even prevalence to imbalance = NN;
@@ -427,25 +381,17 @@ Test.Prevalence <- function( obs, N, part, theForm ){
   return( results ) 
 }
 
-
-#===============================================================================
-#-- Independent Data Evaluation
-#
-# 2020/05/10: Needs updating based on objectives.
-#
-# Comparisons include:
-#   1. Coastwide model vs. all 3 ID sets.
-#     ID merged from the regions to test coastwide.
-#     summarizes the merged IDS
-#   2. Regional models vs. all 3 ID sets. 
-#     summarizes the regional IDS
-# Build a table to hold the performance scores for the various comparisons.
+#-----------------------------------------------------------------
+#-- Independent Data Evaluation. 
+# Does the full comparison between all 6 models and all 3 ID sets.
 # Requires: loaded independent data (dive, cam, ROV)
-#           all RF models built.
-#----------------------------------
-#  2020/09/04: Rewrite of the function to doe one of three sets of RF models:
+#           all RF models built. Names need to have expected structure.
+# Independent data are merged from the regional data to test coastwide model.
+# Builds a list of results, including aggregated and class-based metrics. 
+#
+#  2020/09/04: Rewritten to do one of three sets of RF models:
 #     Weighted (regular), Trimmed, or non-weighted.
-#  rfType IN ('rf', 'nwrf', 'trm')
+#     Also standardized on model prefix: rfType IN ('rf', 'nwrf', 'trm')
 IDS.Evaluation <- function( rfType, results=NULL ){
   #-- Part 1: Coast model vs. each ID set. Regional IDE sets need to be assembled.  
   results.int   <- NULL
@@ -533,11 +479,6 @@ IDS.Evaluation <- function( rfType, results=NULL ){
   rownames( results ) <- NULL
   return( list( 'Integrated' = results.int, 'PerClass' = results.class ))
 }
-
-
-
-
-#============================================ DATA PREPARATION  =================================
 
 #-------------------------------------------------------------------------------
 # Construct summary tables of build results. 
@@ -648,14 +589,10 @@ Summarize.Build <- function( build.df ){
   return( out )
 }
 
-
+#----------------------------------------------------------------
+# Rename 100 m predictors to match names used for 20 m predictors 
 Rename.100m.Preds <- function( df ){
-  # Rename 100 m predictors to match names used for 20 m predictors 
-  # x <- names( dive.20mIV$NCC )
-  # x <- x[ !x %in% c("fetch")]
-  # names.100m <- x[4:13]
-  # names(obs.100mIV)[5:14] <- names.100m
-  
+
   names(df)[names(df)=="brd_BPI"] <- "broad_BPI"
   names(df)[names(df)=="circltn"] <- "circulation"
   names(df)[names(df)=="curvatr"] <- "curvature"
@@ -665,7 +602,6 @@ Rename.100m.Preds <- function( df ){
   
   return(df)
 }
-
 
 #---------------------------------------------
 # Partition input points according to regions.
@@ -713,7 +649,6 @@ Partition.Test.Data <- function( pts ){
   return( out )
 }
 
-
 #---------------------------------------------
 # Partition input points into low and high density piles
 # Returns: List of 2 dataframes, one for each of low/hi density regions
@@ -747,7 +682,6 @@ Partition.By.Density <- function( pts ){
   return( out )
 }
 
-
 #----------------------------
 # Loads 20 m (regional) predictor data onto observation points.
 # Returns:  List of regions ea containing list of points with predictors attached.
@@ -774,7 +708,6 @@ Add.20m.Preds <- function( obsList ){
   return( outList )
 }
 
-
 #----------------------------------------------------------------------------
 # Loads predictors from specified subdirectory 
 Load.Predictors <- function( pred.dir ) {
@@ -793,7 +726,6 @@ Load.Predictors <- function( pred.dir ) {
   return(raster.stack)
 }
 
-
 #-------------------------------------------------------------------
 # A simple function to report the differences in sample sizes before 
 # and after adding predictor data. 
@@ -802,7 +734,6 @@ Diff.Sets <- function( x, y){
   b <- sum( unlist( lapply( y, function(z) dim(z)[[1]] ) ))
   cat(  a, '-', b, "=", a-b, '(', round((a-b)/a, 4)*100, '% loss)' )
 }
-
 
 #----------------------------------------------------------------------------
 # Straight up load of the independent point data sets from source shapefiles. 
@@ -821,7 +752,6 @@ Load.Point.Data <- function( ptlist ) {
   return( a )
 }
 
-
 # Created 2020/07/22 to separate region polygon file to make it more explicit
 Load.Pgon.Data <- function( pgonlist ) {
   
@@ -835,8 +765,6 @@ Load.Pgon.Data <- function( pgonlist ) {
   names( a ) <- names(pgonlist )
   return( a )
 }
-
-
 
 #---------------------------------------------------------------------------
 # Partition observations into training and testing when resampling the data. 
@@ -852,49 +780,11 @@ split.Obs.Data <- function( obs, seed, train.size ){
   return( c )
 }
 
-
-#---------------------------------------------------------------
-# Test how the 100m model performs at the regions using Obs data
-# Requires patitioning of the Obs testing data with 100 m predictors. 
-# Use the spatial info on the Obs points to separate them using the region shape file.
-
-# 2020/06/29: Partition now explicitly called in IDE_Main
-# The table building moved to RMD file. 
-
-# Regional.Test.100m <- function( obsTest ){
-#   
-#   tr <- Partition.Test.Data( point.data$Obs[ point.data$Obs$TestDat == 1, ] )
-#   #length( tr )
-#   #names( tr )
-#   #names( tr$NCC )
-#   #str( tr$NCC )
-#   
-#   x <- rbind( 
-#     cbind( 'Region' = 'Coast', Results.Row( rf.region.Coast, tr$Coast )$Integrated), 
-#     cbind( 'Region' = 'HG', Results.Row( rf.region.Coast, tr$HG )$Integrated), 
-#     cbind( 'Region' = 'NCC', Results.Row( rf.region.Coast, tr$NCC )$Integrated),
-#     cbind( 'Region' = 'WVVI', Results.Row( rf.region.Coast, tr$WCVI )$Integrated), 
-#     cbind( 'Region' = 'QCS', Results.Row( rf.region.Coast, tr$QCS )$Integrated),
-#     cbind( 'Region' = 'SOG', Results.Row( rf.region.Coast, tr$SOG )$Integrated)
-#   )
-#   
-#   out.file <- '100m_Performance_Regionally.csv'
-#   write.csv( x, file = file.path(results.dir, out.file) )
-#   
-#   return( tr )
-# }
-
-
-
-#============== Prep summaries for evaluation across depth ribbons ==============
-
-#-- Part 1) Using Obs data. 
-
 #-----------------------------------
-#-- Function builds table of results by region and model type, across depth ribbons
-# Uses following 2 functions as helpers. 
-# NEED z.breaks and z.ribs defined.
-Models.Across.Ribbons <- function( tr ){
+#-- Build table of results by region and model type, across depth ribbons
+# Uses the following 2 functions as helpers. 
+# Requires: z.breaks and z.ribs defined.
+Models.Across.Depths <- function( tr ){
   
   x <- rbind(
     cbind( 'Region' = 'HG',  Coast.Fit.By.Region.By.Depth( tr$HG )),
@@ -932,7 +822,7 @@ Models.Across.Ribbons <- function( tr ){
 # How does the 100 m model perform (using withheld obs) by depth within region?
 # Model is rf.region.coast
 # GLOBAL vars: z.breaks, z.ribs, rf models, obs.20mIV
-# Returns a row of test results.
+# Returns: a row of test results.
 Coast.Fit.By.Region.By.Depth <- function( tdat, mant = 3 ){
   
   rf <- rf.region.Coast
@@ -959,7 +849,7 @@ Coast.Fit.By.Region.By.Depth <- function( tdat, mant = 3 ){
 #-----------------------------------
 # How do the 20 m models perform (using withheld obs) by depth within region?
 # GLOBAL vars: z.breaks, z.ribs, rf models, obs.20mIV
-# Returns a row of test results ... 
+# Returns: a row of test results ... 
 Model.Fit.Obs.By.Depth <- function( regName, mant = 3 ){
   
   rf <- eval(parse( text=paste0( "rf.region.", regName ) ))
@@ -990,8 +880,6 @@ Model.Fit.Obs.By.Depth <- function( regName, mant = 3 ){
 }
 
 
-#-- Part 2 - Test IDS across regions and depths ------------
-
 #-----------------------------------------------------------
 # Test specific IDS for particular region, by depth ribbon
 # Returns: df of results.
@@ -1015,7 +903,7 @@ Model.Fit.IDS.By.Depth <- function( idsName, regName, mant = 3 ){
   for (k in levels( tdat$zClass ) ){
     x.sub <- tdat[ tdat$zClass == k, ]
     
-    print( dim(x.sub)[[1]] )
+#    print( dim(x.sub)[[1]] )
     # build the row label ... 
     compare.what <- data.frame( 'Ribbon' = z.ribs[ as.numeric(k) ], 
                                 'meanZ' = round( mean( x.sub$bathy ), mant ) )
@@ -1034,7 +922,7 @@ Model.Fit.IDS.By.Depth <- function( idsName, regName, mant = 3 ){
 # Test how regional BoP models perform against the IDS
 # models Input: BoP geodatabase and layer, the corresponding region name in the region shape file.
 # Requires: IDS point data to exist ... 
-# Returns table of how well specified BoP fc predicted all IDS
+# Returns: table of how well specified BoP fc predicted all IDS
 Build.IDE.BoP.Results <- function( bop, lyr, nm ){
   
   # load the regional bottom patches ... 
@@ -1087,12 +975,6 @@ Build.IDE.BoP.Results <- function( bop, lyr, nm ){
   }
   return( bop.IDE )
 }
-
-
-#rm( 'bop','lyr','bp','bops','pgons','idx','nm','i','rpts','y','z' )
-
-
-
 
 
 

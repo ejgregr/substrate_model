@@ -151,10 +151,6 @@ show.pal <- function( aa ){
 
 #========================== PLOTTING FUNCTIONS ==========================
 
-
-
-
-
 #-------------------------------
 #-- Heat maps of the build tables.
 
@@ -188,7 +184,6 @@ Heat.Build.Class.Stats <- function( df, wtd = T, theStat, pal, w = 800, h = 600,
   
   dev.off()
 }
-
 
 #---------------------------------------------------
 #-- Heat map of predictor importance for all models. 
@@ -229,7 +224,6 @@ Heat.Build.Var.Import <- function( df, pal, w = 800, h = 600, txtCol ) {
 }
 
 
-
 #-------------- FACETED Build Statistics --------------------
 
 #-- Class prevalence of obs and pred during build, faceted by region.
@@ -244,7 +238,7 @@ Plot.Obs.Pred.Prevalence.Build <- function( dat.table, apal, sz=15, lx=0, ly=0 )
     mutate(Region = factor(Region, levels=c("Coast", "HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
     
     ggplot(aes(x = variable, y = value, fill = Source)) +
-    geom_bar(stat = "identity", width = .6, position = "dodge") +
+    geom_bar(stat = "identity", width = .8, position = "dodge") +
     labs( x = NULL, y = 'Prevalence' ) +
     facet_grid(. ~ Region) +
     scale_fill_manual(values = apal) +
@@ -271,7 +265,7 @@ Plot.ClassStats.IDE <- function( dat.table, metr, apal, sz=15, lx=0, ly=0 ){
     mutate(Region = factor(Region, levels=c("Coast", "HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
     
     ggplot(aes(x = variable, y = value, fill = Model)) +
-    geom_bar(stat = "identity", width = .6, position = "dodge") +
+    geom_bar(stat = "identity", width = .8, position = "dodge") +
     labs( x = NULL, y = metr ) +
     facet_grid(. ~ Region) +
     scale_fill_manual(values = apal) +
@@ -286,7 +280,6 @@ Plot.ClassStats.IDE <- function( dat.table, metr, apal, sz=15, lx=0, ly=0 ){
   
   return(a)
 }
-
 
 #-- Class prevalence of obs vs. prediction across study area, faceted by region.
 Plot.Obs.RegionPred.Prevalence <- function( dat.table, apal ){
@@ -304,7 +297,7 @@ Plot.Obs.RegionPred.Prevalence <- function( dat.table, apal ){
     mutate(Region = factor(Region, levels=c("Coast", "HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
     
     ggplot(aes(x = variable, y = value, fill = Source)) +
-    geom_bar(stat = "identity", width = .6, position = "dodge") +
+    geom_bar(stat = "identity", width = .8, position = "dodge") +
     labs( x = NULL, y = 'Prevalence' ) +
     facet_grid(. ~ Region) +
     scale_fill_manual(values = apal) +
@@ -314,7 +307,6 @@ Plot.Obs.RegionPred.Prevalence <- function( dat.table, apal ){
   
   return(a)
 }
-
 
 #--- Producer and User stats (Build) by Class for Regions ---
 Plot.Class.Stats.For.Regions <- function( dat.table, apal){
@@ -326,7 +318,7 @@ Plot.Class.Stats.For.Regions <- function( dat.table, apal){
     mutate(Region = factor(Region, levels=c("Coast", "HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
 
         ggplot(aes(x = variable, y = value, fill = Stat)) +
-    geom_bar(stat = "identity", width = .6, position = "dodge") +
+    geom_bar(stat = "identity", width = .8, position = "dodge") +
     labs( x = NULL, y = 'Score' ) +
     facet_grid(. ~ Region ) +
     scale_fill_manual(values = apal) +
@@ -337,7 +329,6 @@ Plot.Class.Stats.For.Regions <- function( dat.table, apal){
   return(a)
 }
 
-
 #--- TSS by Depth class within Regions --- includes 20 and 100 m models.
 Plot.TSS.By.Depth.For.Regions <- function( dat.table, apal){
 
@@ -346,7 +337,7 @@ Plot.TSS.By.Depth.For.Regions <- function( dat.table, apal){
     mutate(Region = factor(Region, levels=c("HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
     
     ggplot(aes(x = Ribbon, y = TSS, fill = Model)) +
-    geom_bar(stat = "identity", width = .6, position = "dodge") +
+    geom_bar(stat = "identity", width = .8, position = "dodge") +
     labs( x = NULL, y = 'TSS' ) +
     facet_grid(. ~ Region ) +
     scale_fill_manual(values = apal) +
@@ -369,17 +360,56 @@ Plot.Stat.By.Depth.For.Regions <- function( dat.table, stat, apal){
 #    ggplot(aes(x = Ribbon, y = diffTSS, fill = Model)) +
     ggplot(aes(x = Ribbon, y = diff )) +
 #    geom_bar(stat = "identity", width = .6, position = "dodge") +
-    geom_bar(stat = "identity", width = .6 ) +
+    geom_bar(stat = "identity", width = .8 ) +
     labs( x = NULL, y = ylab) +
     facet_grid(. ~ Region ) +
     scale_fill_manual(values = apal) +
     theme_bw() +
-    theme(text = element_text(size=15)) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4))
-  
-  return(a)
+    theme(  text = element_text(size=15),
+            axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4), 
+            
+            # formatting the facet strip
+            strip.text = element_text(size=rel(1.2))
+        )
+    return(a)
 }
 
+# Params: sz used to set text size; lx, ly set position of legend
+Plot.Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
+  
+  #  x <- df[, c( 'Region', 'IDS', 'TSS', 'Accuracy', 'TNRWtd' )]
+  x <- df[, c( 'Region', 'IDS', 'TSS', 'Accuracy', 'TNR' )]
+  
+  # Adjust for different random baselines
+  x$TSS <- x$TSS - 0.5
+  x$Accuracy <- x$Accuracy - 0.25
+  x$TNR <- x$TNR - 0.75
+  
+  #  names(x) <- c( 'Region', 'IDS', 'TSS', 'Accuracy', 'Specificity' )
+  
+  foo <- melt( x, id.vars = c('Region','IDS') )
+  
+  a <- foo %>%
+    ggplot(aes(x = IDS, y = value, fill = variable)) +
+    geom_bar(stat = "identity", width = .8, position = "dodge") +
+    labs( x = NULL, y = 'Score' ) +
+    facet_grid(. ~ Region) +
+    
+    theme_bw() +
+    theme(text         = element_text( size=sz ), 
+          axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.4),
+          
+          # legend stuff          
+          legend.position = c(lx, ly),
+          legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
+          
+    ) +
+    #    scale_fill_manual(name = 'Independent\ntest data',
+    scale_fill_manual(name = 'Metric',
+                      values = apal)
+  
+  return( a )
+}
 
 Plot.Pontius.By.Depth.For.Regions <- function( df, apal, sz=20 ){
   
@@ -404,9 +434,7 @@ Plot.Pontius.By.Depth.For.Regions <- function( df, apal, sz=20 ){
 }
 
 
-
 #-------------- FACETED IDE Statistics --------------------
-
 
 #--------------------------------------------------------
 #-- Simple facet of the sample size by region for context.
@@ -416,20 +444,18 @@ Plot.Obs.By.IDS.For.Regions <- function( df, apal, sz = 20, lx=0, ly=0 ){
   
   a <- foo %>%
     ggplot(aes(x = variable, y = value, fill = IDS)) +
-    # dodge2 allows the bar size to be preserved for missing values, but they still get recentred if one is missing
-    # that's why resorted to padding the input data. Retained for posterity. position=dodge wld currently be enough.
-    geom_bar(stat = "identity", width = .8, position = position_dodge2(preserve = "single", padding = 0) ) +
+
+        geom_bar(stat = "identity", width = .8, position = "dodge") +
+    #geom_bar(stat = "identity", width = .8, position = position_dodge2(preserve = "single", padding = 0) ) +
     labs( x = NULL, y = 'N' ) +
     facet_grid(. ~ Region) +
-    
     theme_bw() +
     theme( text         = element_text(size = sz), 
            axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.4),   # vjust needed to centre rotated names on tick
 
            # formatting the facet strip
            strip.text = element_text(size=rel(1.2)),
-           strip.background = element_rect(fill="lightblue", colour="black", size=1),
-  
+
            # legend position          
            legend.position = c(lx, ly), 
 #           legend.box.margin = c(50, 50, 50, 50)
@@ -441,82 +467,7 @@ Plot.Obs.By.IDS.For.Regions <- function( df, apal, sz = 20, lx=0, ly=0 ){
   return( a )
 }
 
-#-----------------------------------------------------
-#-- Integrated Statistics by IDS faceted by Region
-# Statistics are hard-coded as list of 3.
-# Params: sz used to set text size; lx, ly set position of legend
-# This function can be used to generate various views of the data. 
-# 2020/05/25 DH preferred IDS as the grouping variable ... 
-# 2020/08/23 Standardized them all as the difference from random baseline
 
-#Plot.TSS.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
-  
-  x <- df[, c( 'Region', 'IDS', 'Model', 'TSS' )]
-  
-  # Adjust  baselines
-  x$TSS <- x$TSS - 0.5
-
-  foo <- melt( x, id.vars = c('Region','IDS', 'Model') )
-  
-  a <- foo %>%
-    ggplot(aes(x = IDS, y = value, fill = Model)) +
-    geom_bar(stat = "identity", width = .6, position = "dodge") +
-    labs( x = NULL, y = 'Model' ) +
-    facet_grid(. ~ Region) +
-    
-    theme_bw() +
-    theme(text         = element_text( size=sz ), 
-          axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.4),
-          
-          # legend stuff          
-          legend.position = c(lx, ly),
-          legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
-          
-    ) +
-    #    scale_fill_manual(name = 'Independent\ntest data',
-    scale_fill_manual(name = 'Metric',
-                      values = apal)
-  
-  return( a )
-}
-
-
-# Params: sz used to set text size; lx, ly set position of legend
-Plot.Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
-  
-#  x <- df[, c( 'Region', 'IDS', 'TSS', 'Accuracy', 'TNRWtd' )]
-  x <- df[, c( 'Region', 'IDS', 'TSS', 'Accuracy', 'TNR' )]
-  
-  # Adjust for different random baselines
-  x$TSS <- x$TSS - 0.5
-  x$Accuracy <- x$Accuracy - 0.25
-  x$TNR <- x$TNR - 0.75
-  
-#  names(x) <- c( 'Region', 'IDS', 'TSS', 'Accuracy', 'Specificity' )
-  
-  foo <- melt( x, id.vars = c('Region','IDS') )
-  
-  a <- foo %>%
-    ggplot(aes(x = IDS, y = value, fill = variable)) +
-    geom_bar(stat = "identity", width = .6, position = "dodge") +
-    labs( x = NULL, y = 'Score' ) +
-    facet_grid(. ~ Region) +
-    
-    theme_bw() +
-    theme(text         = element_text( size=sz ), 
-          axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.4),
-          
-          # legend stuff          
-          legend.position = c(lx, ly),
-          legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
-          
-    ) +
-    #    scale_fill_manual(name = 'Independent\ntest data',
-    scale_fill_manual(name = 'Metric',
-                      values = apal)
-  
-  return( a )
-}
 
 
 #------------------------------------------------
@@ -529,7 +480,7 @@ IDS.Class.Stats.For.Regions  <- function( df, apal, sz=20, lx=0, ly=0 ){
   
   a <- foo %>%
     ggplot(aes(x = variable, y = value, fill = Stat)) +
-    geom_bar(stat = "identity", width = .6, position = "dodge") +
+    geom_bar(stat = "identity", width = .8, position = "dodge") +
     labs( x = NULL, y = 'Score' ) +
     facet_grid(. ~ IDS) +
     
@@ -549,21 +500,10 @@ IDS.Class.Stats.For.Regions  <- function( df, apal, sz=20, lx=0, ly=0 ){
   return( a )
 }
 
-
-  # a <- df %>%
-  #   ggplot(aes(x = Test.Data, y = Accuracy, fill = Test.Data)) +
-  #   geom_bar(stat = "identity", width = .6, position = "dodge") +
-  #   facet_grid(. ~ Model) +
-  #   scale_fill_manual(values = my.colours) +
-  #   theme_bw() +
-  #   theme(text = element_text( size=sz )) +
-  #   theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-
 #-------------------------------
 #-- Map prevalence compared to model test prevalence
 #rm('maprev', 'bs', 'a', 'b', 'c', 'y')
-Plot.Pred.Map.Prevalence <- function( maprev, bs, pal){
+Plot.Pred.Map.Prevalence <- function( maprev, bs, apal, sz=20){
 # TAKES: maprev: Map prevalence saved as part of study area predictions
 #        bs: Summary of the build prevalences
   
@@ -588,16 +528,17 @@ Plot.Pred.Map.Prevalence <- function( maprev, bs, pal){
   y <- mutate(y, Scale = factor(Stat, levels=c("Points", "Map")))
   
   ggplot(y, aes(x=Scale, y=value, fill=variable, order=desc(variable) )) +
+    
     geom_bar(stat="identity") +
     facet_grid(. ~ Region) +
-    scale_fill_manual( values = pal.RMSM,
+    scale_fill_manual( values = apal,
                        name = 'Class') +
+    theme_bw() +
     labs( y = NULL, legend = 'Prevalence' ) +
-    theme( text = element_text( size=20 ),
+    theme( text = element_text( size=sz ),
            axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.4)
     )
 }
-
 
 #-----------------------------------------------------------------
 Plot.Pontius.By.IDS.For.Regions <- function( df, apal, sz=20 ){
@@ -620,7 +561,6 @@ Plot.Pontius.By.IDS.For.Regions <- function( df, apal, sz=20 ){
   return( a )
 }
 
-
 #------------------------------------------------------------------------
 Plot.Pontius.By.IDS.Depth.For.Regions <- function( df, apal, sz=20 ){
   
@@ -642,7 +582,6 @@ Plot.Pontius.By.IDS.Depth.For.Regions <- function( df, apal, sz=20 ){
   return( a )
 }
 
-
 #--- Integrated Statistics by IDS faceted by Region V.2 ---
 #   Compare TSS (diff from random) vs. Quantity and Allocation (is this diff from accuracy)
 Plot.5Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
@@ -653,7 +592,7 @@ Plot.5Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
   
   a <- foo %>%
     ggplot(aes(x = variable, y = value, fill = IDS)) +
-    geom_bar(stat = "identity", width = .6, position = "dodge") +
+    geom_bar(stat = "identity", width = .8, position = "dodge") +
     labs( x = NULL, y = 'Score' ) +
     facet_grid(. ~ Region) +
     
@@ -674,51 +613,44 @@ Plot.5Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
 }
 
 
+#---- Manual plotting of predicted tifs ----
+plotme<-F
 
-#-----------------------
-# Multiple plot function
-#
-# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
-# - cols:   Number of columns in layout
-# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
-#
-# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
-# then plot 1 will go in the upper left, 2 will go in the upper right, and
-# 3 will go all the way across the bottom.
-#
-multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-  library(grid)
+if (plotme == TRUE) {
+  a <- raster( file.path( raster.dir, 'WCVI_classified_substrate.tif' ))
   
-  # Make a list from the ... arguments and plotlist
-  plots <- c(list(...), plotlist)
+  #-- This works ok, but image has much poorer resolution than TIF loaded into ArcGIS ... 
+  #   Try bumping up the bits ... 
   
-  numPlots = length(plots)
+  # original parameters ... 
+  #   height = 7, width = 6, units = "in", res = 400)
+  #   plot(a, maxpixels=5000000, col=pal.RMSM, legend=FALSE,
   
-  # If layout is NULL, then use 'cols' to determine layout
-  if (is.null(layout)) {
-    # Make the panel
-    # ncol: Number of columns of plots
-    # nrow: Number of rows needed, calculated from # of cols
-    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                     ncol = cols, nrow = ceiling(numPlots/cols))
-  }
+  # Map (up to 5,000,000 pixels)
+  png( file=file.path( raster.dir, "TIF test.png"),
+       height = 14, width = 12, units = "in", res = 600)
+  plot(a, maxpixels=10000000, col=pal.RMSM, legend=FALSE,
+       xlab = "Easting", ylab = "Northing", cex.axis = .5, cex.lab = .75)
+  legend(x = "bottomleft",
+         legend = c("Rock", "Mixed", "Sand", "Mud"), 
+         fill = pal.RMSM, title= NA, bg = NA, box.col = NA)
   
-  if (numPlots==1) {
-    print(plots[[1]])
-    
-  } else {
-    # Set up the page
-    grid.newpage()
-    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-    
-    # Make each plot, in the correct location
-    for (i in 1:numPlots) {
-      # Get the i,j matrix positions of the regions that contain this subplot
-      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-      
-      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                      layout.pos.col = matchidx$col))
-    }
-  }
+  dev.off()
 }
+
+
+Error.Matrix <- function( rfModel, tpts ) {
+  w <- predict(rfModel, tpts)
+  a <- caret::confusionMatrix( w$predictions, tpts$BType4 )$table
+  
+  b <- sum(a)
+  c <- cbind( a, 'Prev' = rowSums(a) / b )
+  c <- cbind( c, 'User' = diag(a)/rowSums(a) )
+  
+  c <- rbind( c, 'Prev' = c( colSums(a) / b, 1, 1) ) 
+  d <- rbind( c, 'Prod' = c( diag(a)/colSums(a), 1, 1) ) 
+  
+  return( d )
+}
+
 

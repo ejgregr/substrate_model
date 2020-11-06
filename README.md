@@ -1,7 +1,7 @@
 # substrate_model
 Repository created: 2020/02/20
 Updates: Continuous thru 2020/10/06
-Version: R version 3.6.2 x64
+Version: R version 3.6.3 x64
 
 CONTACT
 Edward Gregr
@@ -10,34 +10,38 @@ ed@SciTechConsulting.com
 604-612-8324
 
 DESCRIPTION
-This project uses a coast-wide data set of observations to build random forest models of bottom substrate using predictors at two resolutions (20 and 100 m) for all Pacific Canadian waters and 5 subregions. The predictive performance of the models is then tested using independent data sets.
+This project uses a coast-wide data set of observations to build random forest models of bottom substrate using predictors at two resolutions (20 and 100 m) for all Pacific Canadian waters and 5 subregions. The predictive performance of the models is tested using independent data sets.
 
-To load/run the model:
+DATA SOURCES
 
-1) Source IDE_Main.R after setting the flags at the top of the script.
-    Flags determine whether results are loaded from rData files, or imported and re-built from scratch (time consuming).
-    Ensure rData files and the source data are available and pathed correctly, as needed.
-2) Run the RMarkdown script (from the console so the environment is visible)
+The code is provided with data sources in rData files.  
+
+THIS CODE
+
+IDE_Main.R controls the loading or re-building of the analysis based on flags at the top of the script. This code is archived so that sourcing this script will load the source data, and re-build the analysis. This will take some time.
+
+Ensure the rData files are available and pathed correctly.
+
+Running the RMarkdown script using the following code snippet will run it so the environment is visible. An MS Word document file of tables and figures, including supplemental materials on the analysis, will be produced. 
 
 
-UPDATES
+--------------
+UPDATE HISTORY
 
 Oct 2020
-Figures and tables for manuscript finalized. Main revisions include: 
-Bottom patch analysis dropped; RMD file heavily revised:
-  Suppl table dropped (class-based TPR/TNR for all regions comparing weighting (its Fig. 2).
-  Standardize table content, table and figure numbers.
-
-
-
+Figures and tables for manuscript finalized.
+Bottom patch analysis, and the testing of predictor variable trimming (i.e., the overfitting story) dropped.
+Lots of extra text removed. Spacing standardized. Testing code moved to Miscellaneous.R script.
+RMD file heavily revised including: table content, and table and figure numbers updated; contingency tables added for 6 main models; Draft of supplementary material (code documentation) added; earlier development notes deleted.
 
 Sept 2020
 Rmd now being used to organise all R-generated tables and figs. And also to link in figs (pngs) made elsewhere.
 Loading or re-building of analytic data frames now automated. Just run IDE_Main.R and go ... hopefully. 
 Added analysis of non-weighted model, and IDS evaluation of BoPs.
 Writing to CSV files removed. 
-
-
+Data density analysis removed because sampling strongly correlated and hence conflated with depth
+Hence, regional figures showing build data density also deemed unnecessary. 
+		
 June 2020 (b)
 Added rMarkdown file; moved all plotting here to organize figures and tables. 
 Split IDE_Main.R into a control script and a data and summary building script (build_substrate.R)
