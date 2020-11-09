@@ -62,31 +62,32 @@ if (reloadpts == T) {
    obs.20mIV <- Add.20m.Preds( a )
    rm( a )
    
-   # -- NOTE there are 977 non-unique points in obs.20mIV - these are duplicates, 
-   # created because of of overlap between the regions (mainly HG and NCC).
+   # -- NOTE there are 977 non-unique points in obs.20mIV - these are duplicates resulting 
+   # from the overlap between the regions (mainly HG and NCC).
    
    #-- Part 2) Load predictors onto the remaining observations (the ID sets). 
    #   Standardize attributes on the IDS, and also divide by bioregions. 
    #   BType4 turned into a factor in Add.20m.Preds() by data.frame()
+   #   Mean bathy dropped from inputs cuz lost on Cam input and not used anyway. 
    
-   a <- point.data$Dive[ , c('ID', 'RMSM', 'bathy_m' )]
-   names( a ) <- c('ID', 'BType4', 'bathy_m')
+   a <- point.data$Dive[ , c('ID', 'RMSM' )]
+   names( a ) <- c('ID', 'BType4')
    dive.20mIV  <- Add.20m.Preds( a )
    rm(a)
    
-   # 2020/08/10: maxDepth_m dropped from Cam cuz Sarah renamed with data update. 
    a <- point.data$Cam[ , c('cellID', 'RMSM' )]
    names( a ) <- c('ID', 'BType4')
    cam.20mIV   <- Add.20m.Preds( a )
    rm(a)
    
-   a <- point.data$ROV[ , c('cellID', 'RMSM', 'maxDepth_m' )]
-   names( a ) <- c('ID', 'BType4', 'bathy_m')
+   a <- point.data$ROV[ , c('cellID', 'RMSM' )]
+   names( a ) <- c('ID', 'BType4')
    ROV.20mIV   <- Add.20m.Preds( a )
    rm(a)
    
    names( ROV.20mIV$HG )
    str( ROV.20mIV$HG )
+   
    # Assess the success of assigning 20 m IVs to the point observations.
    # Compare number of records with and w/out the 20 m IVs attached to check how many points
    # could not be assigned 20 m IVs: 
@@ -105,10 +106,37 @@ if (reloadpts == T) {
    #-- Make some necessary adustments ...
    
    # Drop unused attributes.
-   obs.100mIV <- obs.100mIV[ , !names(obs.100mIV) %in% drop.list ]
+   obs.100mIV <- obs.100mIV[ ,!names(obs.100mIV) %in% drop.list ]
    
    obs.100mIV <- Rename.100m.Preds( obs.100mIV )
    
+   
+   #-- Create second set of IDE points for evaluating the 100 m model ... 
+   a <- point.data$Dive[ , c('ID', 'RMSM' )]
+   names( a ) <- c('ID', 'BType4')
+   dive.100mIV  <- Add.100m.Preds( a )
+   b <- dim(dive.100mIV)[[1]]
+   cat( 'Dive loss: ', dim(a)[[1]] - b, ', ', round( (dim(a)[[1]] - b ) / dim(a)[[1]], 4) *100, '%', sep='' )
+   rm(a, b)
+   
+   a <- point.data$Cam[ , c('cellID', 'RMSM' )]
+   names( a ) <- c('ID', 'BType4')
+   cam.100mIV   <- Add.100m.Preds( a )
+   b <- dim(cam.100mIV)[[1]]
+   cat( 'Cam loss: ', dim(a)[[1]] - b, ', ', round( (dim(a)[[1]] - b ) / dim(a)[[1]], 4) *100, '%', sep='' )
+   rm(a, b)
+   
+   a <- point.data$ROV[ , c('cellID', 'RMSM' )]
+   names( a ) <- c('ID', 'BType4')
+   ROV.100mIV   <- Add.100m.Preds( a )
+   b <- dim(ROV.100mIV)[[1]]
+   cat( 'ROV loss: ', dim(a)[[1]] - b, ', ', round( (dim(a)[[1]] - b ) / dim(a)[[1]], 4) *100, '%', sep='' )
+   rm(a, b)
+   
+   names( dive.100mIV )
+   str( dive.100mIV )
+   
+
    
    #--------- Done loading source data --------------
    endtime <- Sys.time()
@@ -123,10 +151,10 @@ if (reloadpts == T) {
    # Build a date stamp  ... 
    x <- substr( endtime, 1, 10)
    
-   save( point.data, pgon.data, dive.20mIV, cam.20mIV, ROV.20mIV, 
+   save( point.data, pgon.data, 
+         dive.20mIV, cam.20mIV, ROV.20mIV, dive.100mIV, cam.100mIV, ROV.100mIV, 
          obs.100mIV, obs.20mIV,
          file = file.path(model.dir, paste0('loaded_data_', x, '.RData') ))
-   
    rm(x)
 }
 # End load points.
@@ -134,7 +162,7 @@ if (reloadpts == T) {
 
 
 #=====================================================================================
-#-- PART 2: Build and evaluate 6 RF models. (one Coastwide, 100m; 5 regional, 20m)
+#-- PART 2: Build and validate 6 RF models. (one Coastwide, 100m; 5 regional, 20m)
 # All models use wtd ranger(). 
 # Previoulsly built using Rand.Ranger.Model but simplified now to surface train/test data.
 # Fixed.Ranger.Model() uses only the train data to parameterize. 

@@ -72,74 +72,6 @@ pal.heat.11 <- brewer.pal(11, "RdYlBu")
 #-- Old palettes (Coles and PNW) dropped in favour of CB above.
 # pal.cole <- c("#c6c6c6", "#c2f3f9", "#7fc9d8")
 
-#-- devtools required above to properly install colours ... the first time?
-#devtools::install_github("jakelawlor/PNWColors") 
-#library(PNWColors)
-
-#--- Could play with colours using the following code ... but No. 
-# Use luminance=45 instead of default 65?
-# Reduced luminance makes colours darker. Wld like that I think.
-
-# To change luminance, convert from Hex RGB -->  HSL (Hue/saturation/luminance), 
-# change Lum, and convert back. 
-# Can also just change in ggplot() call:
-
-#   ggplot(df, aes(x=cond, y=yval, fill=cond)) + geom_bar(stat="identity") +
-#     scale_fill_hue(l=40)
-
-#--------------------------------------------
-# specify h as whole input degrees (e.g 0-360)
-# s = 0.0 - 1 (0 - 100%)
-# l = 0.0 - 1, (0 - 100%)
-# returns output from R's rgb() functin
-hsl_to_rgb <- function(h, s, l) {
-  h <- h / 360
-  r <- g <- b <- 0.0
-  if (s == 0) {
-    r <- g <- b <- l
-  } else {
-    hue_to_rgb <- function(p, q, t) {
-      if (t < 0) { t <- t + 1.0 }
-      if (t > 1) { t <- t - 1.0 }
-      if (t < 1/6) { return(p + (q - p) * 6.0 * t) }
-      if (t < 1/2) { return(q) }
-      if (t < 2/3) { return(p + ((q - p) * ((2/3) - t) * 6)) }
-      return(p)
-    }
-    q <- ifelse(l < 0.5, l * (1.0 + s), l + s - (l*s))
-    p <- 2.0 * l - q
-    r <- hue_to_rgb(p, q, h + 1/3)
-    g <- hue_to_rgb(p, q, h)
-    b <- hue_to_rgb(p, q, h - 1/3)
-  }
-  return(rgb(r,g,b))
-}
-
-#-----------------------------
-# r, g, b = 0.0 - 1 (0 - 100%)
-# returns h/s/l in a vector, h = 0-360 deg, s = 0.0 - 1 (0-100%), l = 0.0 - 1 (0-100%)
-rgb_to_hsl <- function(r, g, b) {
-  val_max <- max(c(r, g, b))
-  val_min <- min(c(r, g, b))
-  h <- s <- l <- (val_max + val_min) / 2
-  if (val_max == val_min){
-    h <- s <- 0
-  } else {
-    d <- val_max - val_min
-    s <- ifelse(l > 0.5, d / (2 - val_max - val_min), d / (val_max + val_min))
-    if (val_max == r) { h <- (g - b) / d + (ifelse(g < b, 6, 0)) }
-    if (val_max == g) { h <- (b - r) / d/ + 2 }
-    if (val_max == b) { h <- (r - g) / d + 4 }
-    h <- (h / 6) * 360
-  }
-  return(c(h=h, s=s, l=l))
-}
-
-#-- To make the above work, Need to convert EACH HEX colour descrip into 3 numbers. 
-#   Then back again. Defer since this is getting increasingly tangential. 
-#   pal.RMSM
-#   strtoi( substr( pal.RMSM[1], 2, 3 ), 16L )
-#   rbb_to_hsl( pal.RMSM ) 
 
 #-------------------------------
 # Display the specified palette.
@@ -254,19 +186,45 @@ Plot.Obs.Pred.Prevalence.Build <- function( dat.table, apal, sz=15, lx=0, ly=0 )
   return(a)
 }
 
+
+# build.results$Coast.stats[2]
+# build.results$HG.stats[2]
+# build.results$NCC.stats[2]
+# build.results$WCVI.stats[2]
+# 
+# a[ a$Region == 'Coast',]
+# 
+# a <- IDE.results.wtd$PerClass
+# b <- a[ a$Stat   %in% c('TPR', 'TNR', 'User'), ]
+# c <- b[ b$Region %in% c('Coast', 'HG', 'NCC'), ]
+
+#Plot.ClassStats.IDE( b[ b$IDS =='Dive', ], 
+
+
+# Adjust for different random baselines
+# x$TSS <- x$TSS - 0.5
+# x$Accuracy <- x$Accuracy - 0.25
+# x$TNR <- x$TNR - 0.75
+# 
+# Plot.ClassStats.IDE( c[ c$IDS == 'Dive', -grep('IDS', colnames(c)) ], 'Dive', pal.cb3b )
+# Plot.ClassStats.IDE( c[ c$IDS == 'Cam',  -grep('IDS', colnames(c)) ], 'Cam', pal.cb3b )
+# Plot.ClassStats.IDE( c[ c$IDS == 'ROV',  -grep('IDS', colnames(c)) ], 'ROV', pal.cb3b )
+
+
 #2020/09/04: New plot to examine class-based stats across 3 RF models and all regions
-# Needs to be applied oncve per statistic (accuracy, specificity, and reliability)
-Plot.ClassStats.IDE <- function( dat.table, metr, apal, sz=15, lx=0, ly=0 ){
+# Needs to be applied once per statistic (accuracy, specificity, and reliability)
+#2020/11/05: Adapted to do TPR, TNR, Reliability by class faceted by region. Done for each IDS. 
+Plot.ClassStats.IDE <- function( dat.table, ylab, apal, sz=15, lx=0, ly=0 ){
   
-  foo <- melt( dat.table, id.var = c('Region', 'Model'))
+  foo <- melt( dat.table, id.var = c('Region', 'Stat'))
   
   a <- foo %>%
     # Adjust levels for correct faceting ... 
     mutate(Region = factor(Region, levels=c("Coast", "HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
     
-    ggplot(aes(x = variable, y = value, fill = Model)) +
+    ggplot(aes(x = variable, y = value, fill = Stat)) +
     geom_bar(stat = "identity", width = .8, position = "dodge") +
-    labs( x = NULL, y = metr ) +
+    labs( x = NULL, y = ylab ) +
     facet_grid(. ~ Region) +
     scale_fill_manual(values = apal) +
     theme_bw() +
@@ -274,12 +232,12 @@ Plot.ClassStats.IDE <- function( dat.table, metr, apal, sz=15, lx=0, ly=0 ){
             axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4),
             
             # legend stuff          
-            legend.position = c(lx, ly),
-            legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
+#            legend.position = c(lx, ly),
+#            legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
     )
-  
   return(a)
 }
+
 
 #-- Class prevalence of obs vs. prediction across study area, faceted by region.
 Plot.Obs.RegionPred.Prevalence <- function( dat.table, apal ){

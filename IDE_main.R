@@ -12,8 +12,8 @@
 rm(list=ls(all=T))  # Erase environment.
 
 #-- Load necessary packages and functions ... 
-source( "substrate_functions.R" )
 #source( "depth_effect.R" )
+source( "substrate_functions.R" )
 source( "Plot_Functions.R" )
 
 
@@ -29,18 +29,18 @@ reloadpts  <- F
 wtdrngr    <- F
 nowtrngr   <- F
 makeheat   <- F
-mapplots   <- T
+mapplots   <- F
 
 #---- Step 1 of 2: Load the things that don't need to be built ... 
 
 #-- RData file names:
 data.files <- list(
-  pts        = 'loaded_data_2020-08-10.RData',
-  modelsWtd  = 'rf_allModels_2020-08-24.RData',
-  buildRes   = 'buildResults_2020-08-24.RData',
-  predMaps   = 'rasterMapObjects_2020-06-29.RData',
-  modelsNoWt = 'nwrf_allModels_2020-09-02.RData',
-  buildResNW = 'nwbuildResults_2020-09-02.RData'
+  pts        = 'loaded_data_2020-11-07.RData',
+  modelsWtd  = 'rf_allModels_2020-11-07.RData',
+  buildRes   = 'buildResults_2020-11-07.RData',
+  predMaps   = 'rasterMapObjects_2020-11-07.RData',
+  modelsNoWt = 'nwrf_allModels_2020-11-07.RData',
+  buildResNW = 'nwbuildResults_2020-11-07.RData'
 )
 
 # 1) Source data
@@ -198,5 +198,8 @@ IDE.depths <- rbind(
     cbind( 'Region' = 'NCC',   Model.Fit.IDS.By.Depth( 'ROV', 'NCC' )) )
   )
 )
+
+IDE.depths
+
 
 #-- FIN.

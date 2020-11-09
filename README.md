@@ -1,6 +1,6 @@
 # substrate_model
 Repository created: 2020/02/20
-Updates: Continuous thru 2020/10/06
+Updates: Continuous thru 2020/11/09
 Version: R version 3.6.3 x64
 
 CONTACT
@@ -27,6 +27,9 @@ Running the RMarkdown script using the following code snippet will run it so the
 
 --------------
 UPDATE HISTORY
+
+Nov 2020
+Mopping up time. Cleaning up RMD file, plotting script, and stabilizing the data packaging. 
 
 Oct 2020
 Figures and tables for manuscript finalized.

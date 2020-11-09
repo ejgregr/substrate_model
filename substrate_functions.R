@@ -384,7 +384,7 @@ Test.Prevalence <- function( obs, N, part, theForm ){
 #-----------------------------------------------------------------
 #-- Independent Data Evaluation. 
 # Does the full comparison between all 6 models and all 3 ID sets.
-# Requires: loaded independent data (dive, cam, ROV)
+# Requires: loaded independent data (dive, cam, ROV), w both 100m and 20m predictors
 #           all RF models built. Names need to have expected structure.
 # Independent data are merged from the regional data to test coastwide model.
 # Builds a list of results, including aggregated and class-based metrics. 
@@ -392,19 +392,23 @@ Test.Prevalence <- function( obs, N, part, theForm ){
 #  2020/09/04: Rewritten to do one of three sets of RF models:
 #     Weighted (regular), Trimmed, or non-weighted.
 #     Also standardized on model prefix: rfType IN ('rf', 'nwrf', 'trm')
+
 IDS.Evaluation <- function( rfType, results=NULL ){
+  
   #-- Part 1: Coast model vs. each ID set. Regional IDE sets need to be assembled.  
   results.int   <- NULL
   results.class <- NULL
   
   # Dive Data - pull the regional data together  ... 
-  x.test <- rbind( dive.20mIV$HG, dive.20mIV$NCC, dive.20mIV$QCS, dive.20mIV$WCVI, dive.20mIV$SOG )
+  # 2020/11/07: Replaced assembly of IDS w 20 m predictors with 100 m predictors.
+  #  x.test <- rbind( dive.20mIV$HG, dive.20mIV$NCC, dive.20mIV$QCS, dive.20mIV$WCVI, dive.20mIV$SOG )
+  #w <- Results.Row( rf, x.test )
   
   rf <- eval(parse( text=paste0( rfType, '.region.Coast') ))
   
   #-- Build the table piece ... 
   compare.what <- data.frame( 'Region' = 'Coast', 'IDS' = 'Dive' )
-  w <- Results.Row( rf, x.test )
+  w <- Results.Row( rf, dive.100mIV )
   x <- cbind( compare.what, w$Integrated )
   results.int <- rbind( results.int, x ) 
   
@@ -413,11 +417,11 @@ IDS.Evaluation <- function( rfType, results=NULL ){
   print( 'Dive test done ...')
   
   # Repeat for the Cam IDS  ... 
-  x.test <- rbind( cam.20mIV$HG, cam.20mIV$NCC, cam.20mIV$QCS, cam.20mIV$WCVI, cam.20mIV$SOG )
+  #x.test <- rbind( cam.20mIV$HG, cam.20mIV$NCC, cam.20mIV$QCS, cam.20mIV$WCVI, cam.20mIV$SOG )
   
   #-- Build the table piece ... 
   compare.what <- data.frame( 'Region' = 'Coast', 'IDS' = 'Cam' )
-  w <- Results.Row( rf, x.test )
+  w <- Results.Row( rf, cam.100mIV )
   x <- cbind( compare.what, w$Integrated )
   results.int <- rbind( results.int, x ) 
   
@@ -426,11 +430,11 @@ IDS.Evaluation <- function( rfType, results=NULL ){
   print( 'Cam test done ...')
   
   # Repeat for the ROV IDS  ... 
-  x.test <- rbind( ROV.20mIV$HG, ROV.20mIV$NCC, ROV.20mIV$QCS, ROV.20mIV$WCVI, ROV.20mIV$SOG )
+  #x.test <- rbind( ROV.20mIV$HG, ROV.20mIV$NCC, ROV.20mIV$QCS, ROV.20mIV$WCVI, ROV.20mIV$SOG )
   
   #-- Build the table piece ... 
   compare.what <- data.frame( 'Region' = 'Coast', 'IDS' = 'ROV' )
-  w <- Results.Row( rf, x.test )
+  w <- Results.Row( rf, ROV.100mIV )
   x <- cbind( compare.what, w$Integrated )
   results.int <- rbind( results.int, x ) 
   
@@ -472,7 +476,6 @@ IDS.Evaluation <- function( rfType, results=NULL ){
         
         y <- cbind( compare.what, 'Stat' = row.names( w$PerClass ), w$PerClass )
         results.class <- rbind( results.class, y )
-        
       }
     }
   }
@@ -685,7 +688,7 @@ Partition.By.Density <- function( pts ){
 #----------------------------
 # Loads 20 m (regional) predictor data onto observation points.
 # Returns:  List of regions ea containing list of points with predictors attached.
-# Takes:    List of points, fewer attributes is better! 
+# Takes:    List of points, the fewer attributes the better.
 # Requires: Global var: bioregions 
 Add.20m.Preds <- function( obsList ){
   
@@ -707,6 +710,33 @@ Add.20m.Preds <- function( obsList ){
   }
   return( outList )
 }
+
+#----------------------------
+# Loads 100 m (coastwide) predictors onto observation points.
+# Returns:  List of regions ea containing list of points with predictors attached.
+# Takes:    List of points, the fewer attributes the better.
+Add.100m.Preds <- function( obsList ){
+  
+  rasters <- Load.Predictors( paste0( predictor.dir, "/Coastwide" ))
+  preds  <- raster::extract(rasters, obsList, df = TRUE)
+
+  # Drop ID as it duplicates source points  ... 
+  preds <- preds[, !names(preds) %in% c('ID' ) ]
+  merged <- cbind( as.data.frame(obsList), preds)
+  
+  # Standardize the data:
+  #   drop coords, ensure bType is factor rename the bathy column, and flip the sign.
+  merged <- merged[, !names(merged) %in% c('coords.x1', 'coords.x2' ) ]
+  merged$BType4 <- as.factor( merged$BType4 ) 
+  names(merged)[names(merged) == "BC_Bathy"] <- "bathy"
+  merged$bathy <-   merged$bathy * -1
+  
+  # Drop any records with NA values, i.e., for areas where rasters don't cover
+  out <- na.omit( merged )
+  
+  return( out )
+}
+
 
 #----------------------------------------------------------------------------
 # Loads predictors from specified subdirectory 
@@ -887,13 +917,9 @@ Model.Fit.IDS.By.Depth <- function( idsName, regName, mant = 3 ){
   
   rf <- eval(parse( text=paste0( "rf.region.", regName ) ))
   
-  if (regName == 'Coast') {
-    tdat <- NULL
-    for (x in bioregions) {
-      tdat <- rbind( tdat, 
-                     eval(parse( text=paste0( idsName, '.20mIV$', x ) )))
-    }
-  } else
+  if (regName == 'Coast')
+    tdat <- eval(parse( text=paste0( idsName, '.100mIV' ) ))
+  else
     tdat <- eval(parse( text=paste0( idsName, '.20mIV$', regName ) ))
   
   tdat$zClass <- factor( findInterval( tdat$bathy, z.breaks), levels = c(1,2,3,4,5,6,7,8) )

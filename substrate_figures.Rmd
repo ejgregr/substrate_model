@@ -557,7 +557,6 @@ The R code includes the following files:
 *substrate_figures.RMD*: The Markdown script generates plots from existing data objects in the environment, or pulls graphics created (ArcGIS) or assembled (ppt) elsewhere. The code chunks also do some modifying (e.g., scaling of the TSS) of the summarized data.   
 
 To run the Markdown script, Knitr needs to see the necessary data objects. Easiest to run the script from the console (>) as:   
-
 x <- substr(  Sys.time(), 1, 10)   
 rmarkdown::render( "substrate_figures.Rmd",   
   output_file = paste0('SubstrateFigures_', x ),  
