@@ -1,28 +1,85 @@
-# substrate_model
-Repository created: 2020/02/20
-Updates: Continuous thru 2020/11/09
-Version: R version 3.6.3 x64
+# Random Forest Substrate Model at Two Resolutions
 
-CONTACT
-Edward Gregr
-SciTech Environmental Consulting
-ed@SciTechConsulting.com
-604-612-8324
+__Created:__      2020/02/20 from earlier version of project created by Cole Field
+__Main author:__  Edward Gregr  
+__Affiliation:__  Fisheries and Oceans Canada (DFO)   
+__Group:__        SciTech Environmental Consulting   
+__Location:__     Vancouver, BC   
+__Contact:__      e-mail: ed@scitechconsulting.com | tel: 604-612-8324
+__Last Update:__  2020/11/09   
+__Version:__      R version 3.6.3 x64
 
-DESCRIPTION
+- [Objective](#objective)
+- [Summary](#summary)
+- [Status](#status)
+- [Contents](#contents)
+  + [Subsections within contents](#subsections-within-contents)
+- [Methods](#methods)
+  + [Subsections within methods](#subsections-within-methods)
+- [Requirements](#requirements)
+- [Caveats](#caveats)
+- [Uncertainty](#uncertainty)
+- [Acknowledgements](#acknowledgements)
+- [References](#references)
+
+
+## Objective
 This project uses a coast-wide data set of observations to build random forest models of bottom substrate using predictors at two resolutions (20 and 100 m) for all Pacific Canadian waters and 5 subregions. The predictive performance of the models is tested using independent data sets.
 
-DATA SOURCES
+## Summary
+Description of the project, provide some background and context. What are the inputs and outputs?
 
-The code is provided with data sources in rData files.  
-
-THIS CODE
 
 IDE_Main.R controls the loading or re-building of the analysis based on flags at the top of the script. This code is archived so that sourcing this script will load the source data, and re-build the analysis. This will take some time.
 
 Ensure the rData files are available and pathed correctly.
 
 Running the RMarkdown script using the following code snippet will run it so the environment is visible. An MS Word document file of tables and figures, including supplemental materials on the analysis, will be produced. 
+
+
+Data sources include points, shapefiles and TIF layers to create a raster stack. Details are provided in Gregr et al. (in prep). For distribution (i.e., as required by PNAS?), code is provided along with prepared data sources as rData files.  
+
+
+## Status
+In-development
+
+
+## Contents
+Describe the contents of the repository. Are there multiple scripts or directories? What are there purpose and how do they relate to each other?
+### Subsections within contents
+Use subsections to describe the purpose of each script if warranted.
+
+
+## Methods
+What methods were used to achieve the purpose? This should be detailed as possible.
+
+Ensure 20 m and 100 m predictors are named consistently. Also the sign of the 100 m bathy is standarndized as positive depths. 
+
+ConfusionMatrix() was used for consistency of statistics. 
+
+
+## Requirements
+List the input data requirements or software requirements to successfully execute the code.
+
+Working directories are required to re-build the data. At a minimum, and output directory should be provided. These are located near the top of the substrate_function.R script.
+
+
+## Caveats
+Anything other users should be aware of including gaps in the input or output data and warnings about appropriate use.
+
+Versioning of tidyverse packages has been an issue during development, as functions continue to be depreciated. 
+
+
+## Uncertainty
+*Optional section.* Is there some uncertainty associated with the output? Assumptions that were made?
+
+
+## Acknowledgements
+*Optional section.* List any contributors and acknowledge relevant people or institutions
+
+
+## References
+*Optional section.*
 
 
 --------------
@@ -79,39 +136,8 @@ All data inspection and comparison now in IDE_data_compare_V1.R script.
 
 NOTES: 
 - Data load and model build can be time consuming. Separate local folders (/DATA, /MODELS, /RESULTS) are used to store the most recent versions of these.
-- Use ConfusionMatrix() for consistency of statistics. 
    Always order parameters as (predicted, observed)
 - ranger() has inbag.counts - do we need to calculate our own OOB error?
-- Standardize SIGNS on the 100 m and 20 m bathymetries. Currently flipping sign on 20 m during data load.
 - 2020/04/09: sample_effect.R DEFERRED UNTIL SUBSTRATE PAPER COMPLETE
 
-
-
-
--------------------------------------------------------------------------------
-Description of data processing/analysis
-
-IDE_Main.R
-
-Part 1: Build Data Sets
-obs.data		All 4 observational data sets, loaded from the geodatabases, with attributes attached.
-train.data.100m 	The obs data with the predictors already assigned. Read from gdb file. (n=197587)
-train.data.20m		The obs points partitioned by region, with the 20 m predictors attached. (list of 5)
-dive.data		One of thee IDS with 20 m predictors attached.
-cam.data		One of thee IDS with 20 m predictors attached.
-ROV.data		One of thee IDS with 20 m predictors attached.
-
-Names on the train.data.100m attributes updated to match the more complete names from the 20m raster stack. 
-This allows the built models to predict with different data sets. 
-
-Part 2: Build and evaluate 6 RF models
-rf.coast	Built using train.data.100m
-rf.region.HG	Built using train.data.20m$HG
-rf.region.NCC	Built using train.data.20m$NCC
-rf.region.WCVI	Built using train.data.20m$WCVI
-rf.region.QCS	Built using train.data.20m$QCS
-rf.region.SOG	Built using train.data.20m$SOG
-
-Make.Range.Model() returns: the ranger() model structure; Build statistics; and the prevalence of observed and predicted values of the testing partition.
-This function also supports re-sampling of the training data to create confidence intervals but doesn't look like things are going that way.
 

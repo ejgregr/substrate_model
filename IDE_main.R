@@ -159,8 +159,13 @@ if (makeheat == T){
 #   is it necessary to drop them out of the Coast evaluation here? Prob not. Just don't get used.
 
 IDE.results.wtd  <- IDS.Evaluation( 'rf' )
+row.names( IDE.results.wtd ) <- NULL
+
 # IDE.results.trm  <- IDS.Evaluation( 'trm' )
 IDE.results.nowt <- IDS.Evaluation( 'nwrf' )
+row.names( IDE.results.nowt ) <- NULL
+
+
 
 
 #-------------------------------------------------------------
@@ -199,7 +204,7 @@ IDE.depths <- rbind(
   )
 )
 
-IDE.depths
+row.names( IDE.depths ) <- NULL
 
 
 #-- FIN.

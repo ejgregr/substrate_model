@@ -89,13 +89,13 @@ show.pal <- function( aa ){
 #-Given a df with a column named 'Stat', pull the rows with a specified stat and create the heatmap.
 # The heat map columns correspond to the substrate classes. These are columns in the df.
 # Also, the Region column has attributes describing which model it is. 
-Heat.Build.Class.Stats <- function( df, wtd = T, theStat, pal, w = 800, h = 600, txtCol ) {
+Heat.Build.Class.Stats <- function( df, wtd = T, theStat, pal, w = 800, h = 600, txtCol, xtra = '' ) {
 
   #--- Data prep ... 
   # Extract rows of interest 
   statDF <- df[ df$Stat == theStat, ] 
   
-  # Remove the label colums, and name the rows after the regions 
+  # Remove the label columns, and name the rows after the regions 
   foo <- statDF[, -c(1:2) ]
   row.names( foo ) <- statDF$Region
   
@@ -104,7 +104,7 @@ Heat.Build.Class.Stats <- function( df, wtd = T, theStat, pal, w = 800, h = 600,
   
   today <- substr( Sys.time(), 1, 10)
   wtOrNot <- if(wtd==T) 'wtd' else 'noWts'
-  fname <- paste0( 'heat_', theStat, '_Build_', wtOrNot, '_', today, '.png' )
+  fname <- paste0( 'heat_', xtra, theStat, '_Build_', wtOrNot, '_', today, '.png' )
   
   png( file.path( results.dir, fname), width = w, height = h )
        
@@ -187,40 +187,17 @@ Plot.Obs.Pred.Prevalence.Build <- function( dat.table, apal, sz=15, lx=0, ly=0 )
 }
 
 
-# build.results$Coast.stats[2]
-# build.results$HG.stats[2]
-# build.results$NCC.stats[2]
-# build.results$WCVI.stats[2]
-# 
-# a[ a$Region == 'Coast',]
-# 
-# a <- IDE.results.wtd$PerClass
-# b <- a[ a$Stat   %in% c('TPR', 'TNR', 'User'), ]
-# c <- b[ b$Region %in% c('Coast', 'HG', 'NCC'), ]
-
-#Plot.ClassStats.IDE( b[ b$IDS =='Dive', ], 
-
-
-# Adjust for different random baselines
-# x$TSS <- x$TSS - 0.5
-# x$Accuracy <- x$Accuracy - 0.25
-# x$TNR <- x$TNR - 0.75
-# 
-# Plot.ClassStats.IDE( c[ c$IDS == 'Dive', -grep('IDS', colnames(c)) ], 'Dive', pal.cb3b )
-# Plot.ClassStats.IDE( c[ c$IDS == 'Cam',  -grep('IDS', colnames(c)) ], 'Cam', pal.cb3b )
-# Plot.ClassStats.IDE( c[ c$IDS == 'ROV',  -grep('IDS', colnames(c)) ], 'ROV', pal.cb3b )
-
-
 #2020/09/04: New plot to examine class-based stats across 3 RF models and all regions
 # Needs to be applied once per statistic (accuracy, specificity, and reliability)
 #2020/11/05: Adapted to do TPR, TNR, Reliability by class faceted by region. Done for each IDS. 
-Plot.ClassStats.IDE <- function( dat.table, ylab, apal, sz=15, lx=0, ly=0 ){
+Plot.ClassStats.IDE <- function( dat.table, ylab, apal, sz=20, lx=0, ly=0 ){
   
   foo <- melt( dat.table, id.var = c('Region', 'Stat'))
   
   a <- foo %>%
     # Adjust levels for correct faceting ... 
     mutate(Region = factor(Region, levels=c("Coast", "HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
+    mutate(Stat = factor(Stat, levels=c("Accuracy", "TNR", "Reliability"))) %>%
     
     ggplot(aes(x = variable, y = value, fill = Stat)) +
     geom_bar(stat = "identity", width = .8, position = "dodge") +
@@ -424,7 +401,6 @@ Plot.Obs.By.IDS.For.Regions <- function( df, apal, sz = 20, lx=0, ly=0 ){
                       values = apal)
   return( a )
 }
-
 
 
 

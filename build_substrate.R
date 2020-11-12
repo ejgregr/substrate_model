@@ -21,19 +21,19 @@ if (reloadpts == T) {
    head( point.data$Obs )
    dim( point.data$Obs )
    
-   #-- Check the train/test partition. Modify if desired ... 
+   #-- Check the train/test partition. Modify if desired
    #obs.100m@data$TestDat <- split.Obs.Data( obs.100m, 42, 0.7 )
    sum( point.data$Obs$TestDat == 0 ) / nrow( point.data$Obs )
    
    
-   #-- Adjust a couple things in the Obs data ... 
-   # Ensure BType4 is a factor ... 
+   #-- Adjust a couple things in the Obs data ...
+   # Ensure BType4 is a factor
    point.data$Obs$BType4 <- factor( point.data$Obs$BType4  )
    
-   # Flip bathy so that all are positive. 
+   # Flip bathy so that all are positive
    point.data$Obs$bathy <- point.data$Obs$bathy * -1
    
-   # check ... 
+   # check ...
    str( point.data$Obs )
    
    #-------- Now associate the predictor data (IVs) with the points ------
@@ -160,7 +160,6 @@ if (reloadpts == T) {
 # End load points.
 
 
-
 #=====================================================================================
 #-- PART 2: Build and validate 6 RF models. (one Coastwide, 100m; 5 regional, 20m)
 # All models use wtd ranger(). 
@@ -281,7 +280,6 @@ if ( wtdrngr == T ) {
    
 }
 # End Wtd Ranger run and save. 
-
 
 
 #--------------------------------------------------
