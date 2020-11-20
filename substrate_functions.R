@@ -606,6 +606,20 @@ Rename.100m.Preds <- function( df ){
   return(df)
 }
 
+#--------------------------------------------------------------------
+# Rename new 20 m predictors to match original names used throughout. 
+Rename.20m.Preds <- function( df ){
+  
+  names( df )[names( df )=="bathymetry"] <- "bathy"    
+  names( df )[names( df )=="bpi_broad"] <- "broad_BPI"    
+  names( df )[names( df )=="bpi_fine"] <- "fine_BPI"    
+  names( df )[names( df )=="bpi_medium"] <- "med_BPI"    
+  names( df )[names( df )=="standard_deviation_slope"] <- "sd_slope"    
+  
+  return(df)
+}
+
+
 #---------------------------------------------
 # Partition input points according to regions.
 # Returns: List of point dataframes, one for each region
@@ -697,7 +711,11 @@ Add.20m.Preds <- function( obsList ){
   
   for (i in bioregions ) {
     rasters <- Load.Predictors( paste0( predictor.dir, "/", i ))
+    
+    # Revert predictor names to earlier version of source data ... 
+    rasters <- Rename.20m.Preds( rasters )
     preds  <- raster::extract(rasters, obsList, df = TRUE)
+    
     # Drop ID as it duplicates source points  ... 
     preds <- preds[, !names(preds) %in% c('ID' ) ]
     merged <- cbind( as.data.frame(obsList), preds)

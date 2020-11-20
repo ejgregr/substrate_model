@@ -72,7 +72,7 @@ if (reloadpts == T) {
    
    a <- point.data$Dive[ , c('ID', 'RMSM' )]
    names( a ) <- c('ID', 'BType4')
-   dive.20mIV  <- Add.20m.Preds( a )
+   dive.20mIV <- Add.20m.Preds( a )
    rm(a)
    
    a <- point.data$Cam[ , c('cellID', 'RMSM' )]
@@ -137,11 +137,10 @@ if (reloadpts == T) {
    str( dive.100mIV )
    
 
-   
    #--------- Done loading source data --------------
    endtime <- Sys.time()
    cat('---------------------------\n')
-   cat( 'Data build time: ', endtime - starttime, '\n\n' )
+   cat( 'Data build time: ', difftime( starttime, endtime, units='mins' )[[1]], '\n\n' )
    
    #-----------------------------
    #-- Save out the populated observational data.
@@ -169,7 +168,7 @@ if (reloadpts == T) {
 if ( wtdrngr == T ) {
    
    starttime <- Sys.time()
-   cat( 'Starting Wtd Range build: ', starttime, '\n\n' )
+   cat( 'Starting Wtd Ranger build: ', substr( starttime, 12, 20 ), '\n\n' )
    
    
    #-- Need to save the performance stats in something ... 
@@ -195,7 +194,7 @@ if ( wtdrngr == T ) {
    a <- obs.20mIV$HG
    x <- a[ a$TestDat == 0, ]
    y <- a[ a$TestDat == 1, ]
-   
+
    foo <- Wtd.Ranger.Model( x, y, shore.formula )
    imp <- foo$Model$variable.importance
    
@@ -259,7 +258,7 @@ if ( wtdrngr == T ) {
    #-- Done building ranger RF models. 
    
    endtime <- Sys.time()
-   cat( 'Model build time: ', endtime - starttime, '\n\n' )
+   cat( 'Wtd Model build time: ', difftime( starttime, endtime, units='mins' )[[1]], '\n\n' )
    #last run for 1 iteration was 2.7 minutes.
    
    #--------------------------------------------
@@ -289,7 +288,7 @@ if ( wtdrngr == T ) {
 if ( nowtrngr == T ) {
    
    starttime <- Sys.time()
-   cat( 'Starting NON-Wtd Ranger build: ', starttime, '\n\n' )
+   cat( 'Starting NON-Wtd Ranger build: ', substr( starttime, 12, 20 ), '\n\n' )
    
    #-- Need to save the performance stats in something ... 
    #   Use a list of 3 results for each model.
@@ -378,14 +377,10 @@ if ( nowtrngr == T ) {
    #-- Done building No Wt ranger RF models. 
    
    endtime <- Sys.time()
-   cat( 'Model build time: ', endtime - starttime, '\n\n' )
-   #last run for 1 iteration was 2.7 minutes.
-   
+   cat( 'Non-Wtd Model build time: ', difftime( starttime, endtime, units='mins' )[[1]], '\n\n' )
+
    #--------------------------------------------
    #-- SAVE the resulting models. Takes minutes - its a big file. 
-   
-   # Build a time stamp ... 
-   #x <- substr( endtime, 1, 16); x <- gsub(":", "", x); x <- gsub(" ", "-", x)
    
    # Build a date stamp ... 
    rm(x)
@@ -412,6 +407,9 @@ if ( nowtrngr == T ) {
 
 if ( mapplots == T ) {
    
+   starttime <- Sys.time()
+   cat( 'Start map plotting: ', substr( starttime, 12, 20 ), '\n\n' )
+   
    #- Somewhere to put the data ... 
    map.prev <- list()
    
@@ -431,13 +429,15 @@ if ( mapplots == T ) {
    a <- 'HG'
    b <- rf.region.HG
    a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
-   y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
+   a.stack <- Rename.20m.Preds( a.stack )
+      y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
    map.prev <- c(map.prev, 'HG' = y )
    
    #- NCC
    a <- 'NCC'
    b <- rf.region.NCC
    a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+   a.stack <- Rename.20m.Preds( a.stack )
    y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
    map.prev <- c(map.prev, 'NCC' = y )
    
@@ -445,6 +445,7 @@ if ( mapplots == T ) {
    a <- 'WCVI'
    b <- rf.region.WCVI
    a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+   a.stack <- Rename.20m.Preds( a.stack )
    y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
    map.prev <- c(map.prev, 'WCVI' = y )
    
@@ -452,6 +453,7 @@ if ( mapplots == T ) {
    a <- 'QCS'
    b <- rf.region.QCS
    a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+   a.stack <- Rename.20m.Preds( a.stack )
    y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
    map.prev <- c(map.prev, 'QCS' = y )
    
@@ -459,9 +461,12 @@ if ( mapplots == T ) {
    a <- 'SOG'
    b <- rf.region.SOG
    a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+   a.stack <- Rename.20m.Preds( a.stack )
    y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
    map.prev <- c(map.prev, 'SOG' = y )
    
+   
+   cat( 'Total map plotting time: ', difftime( starttime, endtime, units='mins' )[[1]], '\n\n' )
    
    #-- SAVE the prevalence and the predicted objects ... 
    
@@ -473,8 +478,5 @@ if ( mapplots == T ) {
          file = file.path( model.dir, paste0('rasterMapObjects_', x, '.RData')) )
 }
 # End of map plots 
-
-
-
 
 ### Fin.

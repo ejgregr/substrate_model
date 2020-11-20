@@ -145,7 +145,10 @@ Heat.Build.Var.Import <- function( df, pal, w = 800, h = 600, txtCol ) {
   olist <- 1:ncol(y)
   olist  <- olist[ c(1,11,2,10,3,9,6,4,5,7,8) ]
 
-  png( file.path( results.dir, 'heat_VariableImportance_Build.png' ), width = w, height = h )
+  today <- substr( Sys.time(), 1, 10)
+  fname <- paste0( 'heat_VariableImportance_Build_', today, '.png' )
+  png( file.path( results.dir, fname ), width = w, height = h )
+  
   superheat( y, heat.pal = pal, legend = F, grid.hline = F, grid.vline = F, scale = F,
              X.text = t2, X.text.col = txtCol, X.text.size = 8, heat.lim = c(1,11),
              order.rows = rev(1:nrow(y)), order.cols = olist,
@@ -186,7 +189,6 @@ Plot.Obs.Pred.Prevalence.Build <- function( dat.table, apal, sz=15, lx=0, ly=0 )
   return(a)
 }
 
-
 #2020/09/04: New plot to examine class-based stats across 3 RF models and all regions
 # Needs to be applied once per statistic (accuracy, specificity, and reliability)
 #2020/11/05: Adapted to do TPR, TNR, Reliability by class faceted by region. Done for each IDS. 
@@ -212,55 +214,6 @@ Plot.ClassStats.IDE <- function( dat.table, ylab, apal, sz=20, lx=0, ly=0 ){
 #            legend.position = c(lx, ly),
 #            legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
     )
-  return(a)
-}
-
-
-#-- Class prevalence of obs vs. prediction across study area, faceted by region.
-Plot.Obs.RegionPred.Prevalence <- function( dat.table, apal ){
-  
-  # change numbers to proportions
-  y <- data.frame( dat.table[,c(3:6)]/rowSums( dat.table[,c(3:6)] ))
-  # add results back to the ID columns
-  y <- cbind( dat.table[,c(1,2)], y)
-  names(y)[1] <- 'Source'
-  
-  foo <- melt( y, id.var = c('Stat', 'Region'))
-  
-  a <- foo %>%
-    # Adjust levels for correct faceting ... 
-    mutate(Region = factor(Region, levels=c("Coast", "HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
-    
-    ggplot(aes(x = variable, y = value, fill = Source)) +
-    geom_bar(stat = "identity", width = .8, position = "dodge") +
-    labs( x = NULL, y = 'Prevalence' ) +
-    facet_grid(. ~ Region) +
-    scale_fill_manual(values = apal) +
-    theme_bw() +
-    theme(text = element_text(size=15)) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4))
-  
-  return(a)
-}
-
-#--- Producer and User stats (Build) by Class for Regions ---
-Plot.Class.Stats.For.Regions <- function( dat.table, apal){
-  
-  foo <- melt( dat.table, id.var = c('Region', 'Stat') )
-  
-  a <- foo  %>%
-    # Adjust levels for correct faceting ... 
-    mutate(Region = factor(Region, levels=c("Coast", "HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
-
-        ggplot(aes(x = variable, y = value, fill = Stat)) +
-    geom_bar(stat = "identity", width = .8, position = "dodge") +
-    labs( x = NULL, y = 'Score' ) +
-    facet_grid(. ~ Region ) +
-    scale_fill_manual(values = apal) +
-    theme_bw() +
-    theme(text = element_text(size=15)) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4))
-  
   return(a)
 }
 
@@ -346,31 +299,6 @@ Plot.Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
   return( a )
 }
 
-Plot.Pontius.By.Depth.For.Regions <- function( df, apal, sz=20 ){
-  
-  y <- df[ , c('Region', 'Ribbon', 'Accuracy','Shift', 'Exchange', 'Quantity' )]
-  y <- melt(y, id.vars = c('Ribbon','Region') )
-  
-  a <- ggplot(y, aes(x=Ribbon, y=value, fill=forcats::fct_rev(variable), order=desc(variable) )) +
-  geom_bar(stat="identity") +
-  labs( y = NULL, legend = 'Metric' ) +
-  facet_grid(. ~ Region) +
-    
-  theme( text = element_text( size=sz ),
-         axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.4)
-  ) +
-#  scale_y_continuous( limits=c(0.5, 1.0) ) +
-#  ylim( 0.5, 1.0 ) +
-  coord_cartesian(ylim = c(0.5, 1.0)) +
-  scale_fill_manual( values = apal,
-                     name = 'Metrics')
-  
-  return( a )
-}
-
-
-#-------------- FACETED IDE Statistics --------------------
-
 #--------------------------------------------------------
 #-- Simple facet of the sample size by region for context.
 Plot.Obs.By.IDS.For.Regions <- function( df, apal, sz = 20, lx=0, ly=0 ){
@@ -399,38 +327,6 @@ Plot.Obs.By.IDS.For.Regions <- function( df, apal, sz = 20, lx=0, ly=0 ){
     
     scale_fill_manual(name = 'Independent\ntest data',
                       values = apal)
-  return( a )
-}
-
-
-
-#------------------------------------------------
-#-- Producer and User stats by Class for Regions
-#   NEEDS UPDATED DATA TABLE ... 
-IDS.Class.Stats.For.Regions  <- function( df, apal, sz=20, lx=0, ly=0 ){
-
-  foo <- melt( df, id.vars = c('Region','IDS', 'Stat') )
-  foo <- foo[ foo$Region == 'HG', ]
-  
-  a <- foo %>%
-    ggplot(aes(x = variable, y = value, fill = Stat)) +
-    geom_bar(stat = "identity", width = .8, position = "dodge") +
-    labs( x = NULL, y = 'Score' ) +
-    facet_grid(. ~ IDS) +
-    
-    theme_bw() +
-    theme(text         = element_text( size=sz ), 
-          axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.4),
-          
-          # legend stuff          
-          legend.position = c(lx, ly),
-          legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
-          
-    ) +
-    #    scale_fill_manual(name = 'Independent\ntest data',
-    scale_fill_manual(name = 'Metric',
-                      values = apal)
-  
   return( a )
 }
 
@@ -474,21 +370,23 @@ Plot.Pred.Map.Prevalence <- function( maprev, bs, apal, sz=20){
     )
 }
 
-#-----------------------------------------------------------------
-Plot.Pontius.By.IDS.For.Regions <- function( df, apal, sz=20 ){
+#------------------------------------------------------------------------
+Plot.Pontius.By.Depth.For.Regions <- function( df, apal, sz=20 ){
   
-  y <- melt(df, id.vars = c('IDS', 'Region') )
+  y <- df[ , c('Region', 'Ribbon', 'Accuracy','Shift', 'Exchange', 'Quantity' )]
+  y <- melt(y, id.vars = c('Ribbon','Region') )
   
-  a <- y %>%
-  ggplot(aes(x=IDS, y=value, fill=forcats::fct_rev(variable), order=desc(variable) )) +
+  a <- ggplot(y, aes(x=Ribbon, y=value, fill=forcats::fct_rev(variable), order=desc(variable) )) +
     geom_bar(stat="identity") +
     labs( y = NULL, legend = 'Metric' ) +
-        facet_grid(. ~ Region) +
+    facet_grid(. ~ Region) +
     
     theme( text = element_text( size=sz ),
            axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.4)
-           ) +
-    
+    ) +
+    #  scale_y_continuous( limits=c(0.5, 1.0) ) +
+    #  ylim( 0.5, 1.0 ) +
+    coord_cartesian(ylim = c(0.5, 1.0)) +
     scale_fill_manual( values = apal,
                        name = 'Metrics')
   
@@ -512,36 +410,6 @@ Plot.Pontius.By.IDS.Depth.For.Regions <- function( df, apal, sz=20 ){
     
     scale_fill_manual( values = apal,
                        name = 'Metrics')
-  
-  return( a )
-}
-
-#--- Integrated Statistics by IDS faceted by Region V.2 ---
-#   Compare TSS (diff from random) vs. Quantity and Allocation (is this diff from accuracy)
-Plot.5Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
-  
-  x <- df[, c( 'Region', 'IDS', 'TSS', 'Accuracy', 'TNRWtd', 'Quantity', 'Exchange' )]
-  
-  foo <- melt( x, id.vars = c('Region','IDS') )
-  
-  a <- foo %>%
-    ggplot(aes(x = variable, y = value, fill = IDS)) +
-    geom_bar(stat = "identity", width = .8, position = "dodge") +
-    labs( x = NULL, y = 'Score' ) +
-    facet_grid(. ~ Region) +
-    
-    theme_bw() +
-    theme(text         = element_text( size=sz ), 
-          axis.text.x  = element_text(angle = 90, hjust = 1),
-          
-          # legend stuff          
-          legend.position = c(lx, ly),
-          legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
-          
-    ) +
-    #    scale_fill_manual(name = 'Independent\ntest data',
-    scale_fill_manual(name = 'Metric',
-                      values = apal)
   
   return( a )
 }
