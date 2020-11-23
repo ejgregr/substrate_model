@@ -110,8 +110,6 @@ kable( x, digits=2, caption = T.cap )
 #-- Insert pre-built boundary file as png.
 ```
 
-![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/figures/boundaries.png){ fig.fullwidth=TRUE }
-
 **Figure 1: Map of study area showing outline of the shelf (for the 100 m coastwide model) and the five regions including Haida Gwaii (HG), North Central Coast (NCC), West Coast of Vancouver Island (WCVI), Queen Charlotte Strait (QCS), and the Strait of Georgia (SOG).**
 
 ```{=openxml}
@@ -133,8 +131,6 @@ kable( x, digits=2, caption = T.cap )
 # 2020/09/04: Now pre-built multi-panel from the heatmap output.
 
 ```
-![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/figures/ms_figure2_classheat.png)
-
 **Figure 2: Heatmaps of class-based Accuracy, true negative rate (TNR) and Reliability for weighted (left column) and non-weighted (right column) models. The colour shading within each row reflects the underlying numbers from high (red) to low (blue) and is included to make the differences between values more apparent.**  
 
 ```{=openxml}
@@ -311,19 +307,7 @@ Plot.Pontius.By.Depth.For.Regions( z, rev(pal.cb4) )
 ```
 
 
-![](C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/figures/ms_figure10_ScaleComp.png){ fig.fullwidth=TRUE }
-
 **Figure 8: Mapped predictions for A) two 20 m regional models (HG and NCC) and B) the 100 m coastwide model. Note the detail provided by the 20 m models near shore where the 100 m model predicts largely Rock. In contrast, the 100 m model captures known features at depth not captured by the 20 m model.** 
-
-```{=openxml}
-# Inserting a word page break ... 
-<w:p>
-  </w:pPr>
-    <w:r>
-      <w:br w:type="page"/>
-    </w:r>
-</w:p>
-```
 
 
 ```{r Fig9_IDS_One, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}

@@ -441,7 +441,7 @@ if ( mapplots == T ) {
    y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
    map.prev <- c(map.prev, 'NCC' = y )
    
-   #- WCVI
+   #- WCVI #1 - wtd
    a <- 'WCVI'
    b <- rf.region.WCVI
    a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
@@ -457,7 +457,7 @@ if ( mapplots == T ) {
    y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
    map.prev <- c(map.prev, 'QCS' = y )
    
-   #- SOG
+   #- SOG #1 - wtd
    a <- 'SOG'
    b <- rf.region.SOG
    a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
@@ -466,6 +466,26 @@ if ( mapplots == T ) {
    map.prev <- c(map.prev, 'SOG' = y )
    
    
+   rm(a.stack)
+   #- WCVI #2 - No wts
+   a <- 'WCVI'
+   b <- nwrf.region.WCVI
+   a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+   a.stack <- Rename.20m.Preds( a.stack )
+   y <- Predict.Surface( a.stack, b, raster.dir, paste0( a, '_noWt_'), pal.RMSM )
+   map.prev <- c(map.prev, 'WCVI' = y )
+   
+   rm(a.stack)
+   #- SOG #2 - No wts
+   a <- 'SOG'
+   b <- nwrf.region.SOG
+   a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+   a.stack <- Rename.20m.Preds( a.stack )
+   y <- Predict.Surface( a.stack, b, raster.dir, paste0( a, '_noWt_'), pal.RMSM )
+   map.prev <- c(map.prev, 'SOG' = y )
+   
+   
+      
    cat( 'Total map plotting time: ', difftime( starttime, endtime, units='mins' )[[1]], '\n\n' )
    
    #-- SAVE the prevalence and the predicted objects ... 

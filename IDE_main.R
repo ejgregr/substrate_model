@@ -25,11 +25,11 @@ source( "Plot_Functions.R" )
 # THere are dependencies, e.g., if the RF models are re-built, the analysis  needs to be redone.
 
 # Parameters to the re-build ... 
-reloadpts  <- T
-wtdrngr    <- T
-nowtrngr   <- T
-makeheat   <- T
-mapplots   <- T
+reloadpts  <- F
+wtdrngr    <- F
+nowtrngr   <- F
+makeheat   <- F
+mapplots   <- F
 
 #---- Step 1 of 2: Load the things that don't need to be built ... 
 
@@ -38,9 +38,9 @@ data.files <- list(
   pts        = 'loaded_data_2020-11-19.RData',
   modelsWtd  = 'rf_allModels_2020-11-19.RData',
   buildRes   = 'buildResults_2020-11-19.RData',
-  predMaps   = 'rasterMapObjects_2020-11-19.RData',
   modelsNoWt = 'nwrf_allModels_2020-11-19.RData',
-  buildResNW = 'nwbuildResults_2020-11-19.RData'
+  buildResNW = 'nwbuildResults_2020-11-19.RData',
+  predMaps   = 'rasterMapObjects_2020-11-20.RData'
 )
 
 # 1) Source data

@@ -276,7 +276,7 @@ Predict.Surface <- function(env.predictors, ranger.model, output.directory, nm, 
   labels <- c("Rock", "Mixed", "Sand", "Mud")
   
   # Map (up to 5,000,000 pixels)
-  png(file=file.path(output.directory, paste0(nm, "substrate_raster.png")) ,
+  png(file=file.path(output.directory, paste0(nm, "_substrate_raster.png")) ,
       height = 7, width = 6, units = "in", res = 400)
   plot(raster.obj, maxpixels=5000000, col=pngpal, legend=FALSE,
        xlab = "Easting", ylab = "Northing", cex.axis = .5, cex.lab = .75)
