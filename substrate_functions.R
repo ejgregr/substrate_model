@@ -666,38 +666,6 @@ Partition.Test.Data <- function( pts ){
   return( out )
 }
 
-#---------------------------------------------
-# Partition input points into low and high density piles
-# Returns: List of 2 dataframes, one for each of low/hi density regions
-# Requires: names.100m as a global (defined during data load)
-#           Obs points, and the density shape file. 
-Partition.By.Density <- function( pts ){
-  
-  out <- list()
-  
-  #-- Load the regions shape file containing the High Density pgons ... 
-  pgons <- readOGR( file.path(source.dir, "/regions/hi_density_area.shp") )
-  
-  # Split the points into those that fall in the High density area ... 
-  dens.pts <- x[ pgons[ pgons$name == "High_Density_Area",], ]@data
-  # and those that don't ... (confirmed IDs are unique)
-  sparse.pts <- x[ !(x$ID %in% dens.pts$ID), ]@data
-  
-  # Now fix the attribute lists 
-  dens.pts$BType4   <- as.factor( dens.pts$BType4 )
-  sparse.pts$BType4 <- as.factor( sparse.pts$BType4 )
-  
-  x <- dens.pts[ , !colnames(dens.pts) %in% drop.list ]
-  names(x)[3:12] <- names.100m 
-  out <- c( out, list( 'Dense' = x) )
-  
-  x <- sparse.pts[ , !colnames(sparse.pts) %in% drop.list ]
-  names(x)[3:12] <- names.100m 
-  out <- c( out, list( 'Sparse' = x) )
-  
-  
-  return( out )
-}
 
 #----------------------------
 # Loads 20 m (regional) predictor data onto observation points.
@@ -961,65 +929,6 @@ Model.Fit.IDS.By.Depth <- function( idsName, regName, mant = 3 ){
   }
   return (results)
 }
-
-#-----------------------------------------------------
-# Test how regional BoP models perform against the IDS
-# models Input: BoP geodatabase and layer, the corresponding region name in the region shape file.
-# Requires: IDS point data to exist ... 
-# Returns: table of how well specified BoP fc predicted all IDS
-Build.IDE.BoP.Results <- function( bop, lyr, nm ){
-  
-  # load the regional bottom patches ... 
-  bp <- file.path("d:/spacedata2019/BoPs/Delivered/", bop)
-  bops <- readOGR(dsn = bp,layer = lyr )
-  
-  # load the region file to pull the IDS points ... 
-  pgons <- pgon.data$Regions
-  
-  # Get name of region pgon ... this call took 30 min to put together! :\
-  # 2020/07/22: factor order messed up. just pass the name in
-  #idx <- which( bioregions %in% strsplit(bop, '_')[[1]][1] )
-  #nm <- pgons$Region[order( pgons$Region )][ idx ]
-  
-  bop.IDE <- NULL
-  for (i in c('Dive', 'Cam')) {
-    print( i )
-    
-    # Select just the IDS points in the region.
-    #[ Not working!! ]
-    #length( point.data$Dive )
-    
-    #x <- pts[ pgons[ pgons$Region == "Haida Gwaii",], ]@data
-    
-    rpts <- point.data[[ i ]][ pgons[ pgons$Region == nm,], ]
-    print( length( rpts) )
-    
-    # Ensure projection of BoPs agree with points (can be subtly different) ...
-    crs( bops ) <- crs( rpts )
-    
-    # Now pull BTypes to the points 
-    y <- over( rpts, bops[ c('BType1', 'BType2') ] )
-    
-    # drop the spatial deets and combine obs with BoP pred 
-    z <- cbind(rpts@data, y)
-    
-    z <- z[ !is.na(z$BType1), ]
-    # Transform BTypes into new BType comparable w RMSM
-    z$BType4 <- with(z, ifelse( BType1 != 3, BType1, 
-                               ifelse( BType2 == 'a', 3, 4))
-    )
-    
-    z$RMSM  <- factor( z$RMSM, levels = c('1','2','3','4') )
-    z$BType4 <- factor( z$BType4, levels = c('1','2','3','4') )
- 
-    #print( caret::confusionMatrix( z$RMSM, z$BType )$table )
-    bop.IDE <- rbind( bop.IDE, 
-                      cbind( 'IDS' = i, 'Region' = strsplit(bop, '_')[[1]][1],
-                             Results.Row( z$RMSM, z, paired = T )$Integrated ))
-  }
-  return( bop.IDE )
-}
-
 
 
 ### fin.

@@ -7,6 +7,104 @@
 
 
 #----------------------------------
+# 2020/11/23: Removing more unneeded functions including:
+#   Build.IDE.BoP.Results, Partition.By.Density, Plot.ClassStats.IDE
+
+
+#-----------------------------------------------------
+# Test how regional BoP models perform against the IDS
+# models Input: BoP geodatabase and layer, the corresponding region name in the region shape file.
+# Requires: IDS point data to exist ... 
+# Returns: table of how well specified BoP fc predicted all IDS
+Build.IDE.BoP.Results <- function( bop, lyr, nm ){
+  
+  # load the regional bottom patches ... 
+  bp <- file.path("d:/spacedata2019/BoPs/Delivered/", bop)
+  bops <- readOGR(dsn = bp,layer = lyr )
+  
+  # load the region file to pull the IDS points ... 
+  pgons <- pgon.data$Regions
+  
+  # Get name of region pgon ... this call took 30 min to put together! :\
+  # 2020/07/22: factor order messed up. just pass the name in
+  #idx <- which( bioregions %in% strsplit(bop, '_')[[1]][1] )
+  #nm <- pgons$Region[order( pgons$Region )][ idx ]
+  
+  bop.IDE <- NULL
+  for (i in c('Dive', 'Cam')) {
+    print( i )
+    
+    # Select just the IDS points in the region.
+    #[ Not working!! ]
+    #length( point.data$Dive )
+    
+    #x <- pts[ pgons[ pgons$Region == "Haida Gwaii",], ]@data
+    
+    rpts <- point.data[[ i ]][ pgons[ pgons$Region == nm,], ]
+    print( length( rpts) )
+    
+    # Ensure projection of BoPs agree with points (can be subtly different) ...
+    crs( bops ) <- crs( rpts )
+    
+    # Now pull BTypes to the points 
+    y <- over( rpts, bops[ c('BType1', 'BType2') ] )
+    
+    # drop the spatial deets and combine obs with BoP pred 
+    z <- cbind(rpts@data, y)
+    
+    z <- z[ !is.na(z$BType1), ]
+    # Transform BTypes into new BType comparable w RMSM
+    z$BType4 <- with(z, ifelse( BType1 != 3, BType1, 
+                                ifelse( BType2 == 'a', 3, 4))
+    )
+    
+    z$RMSM  <- factor( z$RMSM, levels = c('1','2','3','4') )
+    z$BType4 <- factor( z$BType4, levels = c('1','2','3','4') )
+    
+    #print( caret::confusionMatrix( z$RMSM, z$BType )$table )
+    bop.IDE <- rbind( bop.IDE, 
+                      cbind( 'IDS' = i, 'Region' = strsplit(bop, '_')[[1]][1],
+                             Results.Row( z$RMSM, z, paired = T )$Integrated ))
+  }
+  return( bop.IDE )
+}
+
+
+#---------------------------------------------
+# Partition input points into low and high density piles
+# Returns: List of 2 dataframes, one for each of low/hi density regions
+# Requires: names.100m as a global (defined during data load)
+#           Obs points, and the density shape file. 
+Partition.By.Density <- function( pts ){
+  
+  out <- list()
+  
+  #-- Load the regions shape file containing the High Density pgons ... 
+  pgons <- readOGR( file.path(source.dir, "/regions/hi_density_area.shp") )
+  
+  # Split the points into those that fall in the High density area ... 
+  dens.pts <- x[ pgons[ pgons$name == "High_Density_Area",], ]@data
+  # and those that don't ... (confirmed IDs are unique)
+  sparse.pts <- x[ !(x$ID %in% dens.pts$ID), ]@data
+  
+  # Now fix the attribute lists 
+  dens.pts$BType4   <- as.factor( dens.pts$BType4 )
+  sparse.pts$BType4 <- as.factor( sparse.pts$BType4 )
+  
+  x <- dens.pts[ , !colnames(dens.pts) %in% drop.list ]
+  names(x)[3:12] <- names.100m 
+  out <- c( out, list( 'Dense' = x) )
+  
+  x <- sparse.pts[ , !colnames(sparse.pts) %in% drop.list ]
+  names(x)[3:12] <- names.100m 
+  out <- c( out, list( 'Sparse' = x) )
+  
+  
+  return( out )
+}
+
+
+#----------------------------------
 # Nov 2020: Seeking the best approach to showing class-based metrics for IDE. 
 # This is class, by IDE, by region (Coast, HG, NCC), by metric. 
 # Tried to match both Fig 2 heatmaps - SD says it looks like a quilt.
@@ -14,6 +112,8 @@
 #   can't be calculated (I don't think) for classes. 
 
 # Right now, the temporary figure uses only baseline differenced TPR/TNR for illustration. 
+# 2020/11/23: Dropped this idea as the figure doesn't seem to tell us anything useful. 
+#   Dropped RMD code is below ... 
 
 a <- IDE.results.wtd$PerClass
 b <- a[ a$Stat   %in% c('TPR', 'TNR', 'User'), ]
@@ -62,6 +162,64 @@ Heat.Build.Class.Stats( d[ d$IDS == 'Cam', -1], T, 'User', rev( pal.heat.10 ), 8
 Heat.Build.Class.Stats( d[ d$IDS == 'ROV', -1], T, 'TPR', rev( pal.heat.10 ), 800, 600, 'black', 'ROV' )
 Heat.Build.Class.Stats( d[ d$IDS == 'ROV', -1], T, 'TNR', rev( pal.heat.10 ), 800, 600, 'black', 'ROV' )
 Heat.Build.Class.Stats( d[ d$IDS == 'ROV', -1], T, 'User', rev( pal.heat.10 ), 800, 600, 'black', 'ROV' )
+
+
+# RMD Code to do the simple version of the above ...
+
+```{r FigXXa_IDEbyClass, echo=FALSE, out.width='120%', fig.fullwidth=TRUE}
+# A simple region-based facet of class-based accuracy and TNR. 
+# Build the data, then 3 plots.
+
+a <- IDE.results.wtd$PerClass
+b <- a[ a$Stat   %in% c('TPR', 'TNR'), ]
+c <- b[ b$Region %in% c('Coast', 'HG', 'NCC'), ]
+row.names(c) <- NULL
+colnames(c)[ colnames(c) %in% c('1', '2', '3', '4') ] <- c('Hard', 'Mixed', 'Sand', 'Mud')
+
+# Take apart and put back together after adjusting for different random baselines
+
+d <- rbind( 
+  cbind( 
+    c[ c$Stat == 'TPR', c('Region', 'IDS')], 'Stat' = 'Accuracy',  
+    c[ c$Stat == 'TPR', c('Hard', 'Mixed', 'Sand', 'Mud') ] - 0.25 ),
+  cbind( 
+    c[ c$Stat == 'TNR', c('Region', 'IDS', 'Stat')],  
+    c[ c$Stat == 'TNR', c('Hard', 'Mixed', 'Sand', 'Mud') ] - 0.75 )
+)
+
+Plot.ClassStats.IDE( d[ d$IDS == 'Dive', -grep('IDS', colnames(c)) ], 'Dive', pal.cb2, sz = 25 )
+Plot.ClassStats.IDE( d[ d$IDS == 'Cam', -grep('IDS', colnames(c)) ], 'Cam', pal.cb2, sz = 25 )
+Plot.ClassStats.IDE( d[ d$IDS == 'ROV', -grep('IDS', colnames(c)) ], 'ROV', pal.cb2, sz = 25 )
+
+
+#2020/09/04: New plot to examine class-based stats across 3 RF models and all regions
+# Needs to be applied once per statistic (accuracy, specificity, and reliability)
+#2020/11/05: Adapted to do TPR, TNR, Reliability by class faceted by region. Done for each IDS. 
+Plot.ClassStats.IDE <- function( dat.table, ylab, apal, sz=20, lx=0, ly=0 ){
+  
+  foo <- melt( dat.table, id.var = c('Region', 'Stat'))
+  
+  a <- foo %>%
+    # Adjust levels for correct faceting ... 
+    mutate(Region = factor(Region, levels=c("Coast", "HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
+    mutate(Stat = factor(Stat, levels=c("Accuracy", "TNR", "Reliability"))) %>%
+    
+    ggplot(aes(x = variable, y = value, fill = Stat)) +
+    geom_bar(stat = "identity", width = .8, position = "dodge") +
+    labs( x = NULL, y = ylab ) +
+    facet_grid(. ~ Region) +
+    scale_fill_manual(values = apal) +
+    theme_bw() +
+    theme(  text = element_text(size=sz ),
+            axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4),
+            
+            # legend stuff          
+            #            legend.position = c(lx, ly),
+            #            legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
+    )
+  return(a)
+}
+
 
 
 

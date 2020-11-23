@@ -189,34 +189,6 @@ Plot.Obs.Pred.Prevalence.Build <- function( dat.table, apal, sz=15, lx=0, ly=0 )
   return(a)
 }
 
-#2020/09/04: New plot to examine class-based stats across 3 RF models and all regions
-# Needs to be applied once per statistic (accuracy, specificity, and reliability)
-#2020/11/05: Adapted to do TPR, TNR, Reliability by class faceted by region. Done for each IDS. 
-Plot.ClassStats.IDE <- function( dat.table, ylab, apal, sz=20, lx=0, ly=0 ){
-  
-  foo <- melt( dat.table, id.var = c('Region', 'Stat'))
-  
-  a <- foo %>%
-    # Adjust levels for correct faceting ... 
-    mutate(Region = factor(Region, levels=c("Coast", "HG", "NCC", "WCVI", "QCS", "SOG"))) %>%
-    mutate(Stat = factor(Stat, levels=c("Accuracy", "TNR", "Reliability"))) %>%
-    
-    ggplot(aes(x = variable, y = value, fill = Stat)) +
-    geom_bar(stat = "identity", width = .8, position = "dodge") +
-    labs( x = NULL, y = ylab ) +
-    facet_grid(. ~ Region) +
-    scale_fill_manual(values = apal) +
-    theme_bw() +
-    theme(  text = element_text(size=sz ),
-            axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4),
-            
-            # legend stuff          
-#            legend.position = c(lx, ly),
-#            legend.background = element_rect(fill="gray90", size=1, linetype="dotted")
-    )
-  return(a)
-}
-
 #--- TSS by Depth class within Regions --- includes 20 and 100 m models.
 Plot.TSS.By.Depth.For.Regions <- function( dat.table, apal){
 
