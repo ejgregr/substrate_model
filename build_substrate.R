@@ -395,7 +395,6 @@ if ( nowtrngr == T ) {
 }
 # End No Wt Ranger run and save. 
 
-
 #----------------------------------------------------------
 #-- PART 2c: Trimmed weighted Ranger models for comparison.
 # Added 2020/08/10; dropped 20920/10/10.
@@ -404,6 +403,11 @@ if ( nowtrngr == T ) {
 #-------------------------------------------
 #  Build model predictions. TAKES HOURS!
 #  Would be useful to separate out generation of prevalence from map plotting?
+#  Not so much because the prediction takes most of the time. 
+
+# 2020/12/17: Noting that each region gets 2 list components, 
+#  first is the predicted raster, 2nd is the associated table of class proportions (See Predict.Surface()). 
+
 
 if ( mapplots == T ) {
    

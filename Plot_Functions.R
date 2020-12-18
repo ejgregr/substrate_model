@@ -306,7 +306,7 @@ Plot.Obs.By.IDS.For.Regions <- function( df, apal, sz = 20, lx=0, ly=0 ){
 #-- Map prevalence compared to model test prevalence
 #rm('maprev', 'bs', 'a', 'b', 'c', 'y')
 Plot.Pred.Map.Prevalence <- function( maprev, bs, apal, sz=20){
-# TAKES: maprev: Map prevalence saved as part of study area predictions
+# TAKES: map.prev: Map prevalence saved as part of study area predictions
 #        bs: Summary of the build prevalences
   
   a <- rbind( maprev$Coast2, maprev$HG2, maprev$NCC2, maprev$WCVI2, maprev$QCS2, maprev$SOG2 )

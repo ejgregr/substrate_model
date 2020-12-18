@@ -205,4 +205,24 @@ IDE.depths <- rbind(
 row.names( IDE.depths ) <- NULL
 
 
+
+# Examine the number of pixels, and NA proportions in the predicted rasters
+# Elemetns of map.prev created by Predict.Surface()
+
+names( map.prev )
+
+x <- as.vector( map.prev$Coast1 )
+length( x ) 
+sum( is.na(x))
+
+x <- as.vector( map.prev$NCC1 )
+length( x )
+sum( is.na(x))
+
+# compare source attrib ... 
+map.prev$Coast1
+map.prev$HG1
+
+
+
 #-- FIN.

@@ -14,8 +14,13 @@ Outstanding code revisions:
 - Sort out why this script occassionally creastes an empty folder.
 
 Outstanding text revisions:
+- Elaborate a bit on 'World Class Tanker Safety System' in Supp. Mat.
 - Complete S2 Analytical methods (this document)
 - Complete README.md to support code reuse, data repository submission
+
+Outstanding Fig. revisions:
+- N arrow on 4A
+- Fig 1 legend, change 'Shelf' to 'Coastwide'
 
 
 ```{r Build_Tables, echo=FALSE}
