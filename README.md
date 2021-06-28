@@ -27,9 +27,13 @@ __Version:__      R version 3.6.3 x64
 This project uses a coast-wide data set of observations to build random forest models of bottom substrate using predictors at two resolutions (20 and 100 m) for all Pacific Canadian waters and 5 subregions. The predictive performance of the models is tested using independent data sets.
 
 ## Summary
-Description of the project, provide some background and context. What are the inputs and outputs?
+Substrate observations were assembled in ArcGIS from field data collected by Fisheries and Oceans Canada. The observations were pushed through raster stacks of predictor variables. We used 20m and 100 m raster stacks (collections of gridded environmental values) comprised of bathymetric and energy-based possible predctors to predict 4 classes of substrate: Rocky, Mixed, Sand, and Mud. Observations include the 'Build' data set, divided into training and testing partitions, and three independent data sets collected for validation. 
 
+We imported the ArcGIS raster stacks and used them to 1) estimate the model, and 2) interpolate it across the study area. To build the random forst model, we assigned raster values to each observations. This analytic data set is disributed with this script. The raster stacks contain proprietrary data, and are available on request from Fisheries and Oceans Canada. Details on the observations and predictors are provided in Gregr et al. (2021). The data to replicate the analysis are included as rData files.  
 
+Running the main script will produce an RMD file containing most of the results. Some functions seem fussy within RMD (the heatmaps) so these need to be pre-generated (main script) and pointed to by the RMD file. 
+
+Scripts:
 IDE_Main.R controls the loading or re-building of the analysis based on flags at the top of the script. This code is archived so that sourcing this script will load the source data, and re-build the analysis. This will take some time.
 
 Ensure the rData files are available and pathed correctly.
@@ -37,15 +41,27 @@ Ensure the rData files are available and pathed correctly.
 Running the RMarkdown script using the following code snippet will run it so the environment is visible. An MS Word document file of tables and figures, including supplemental materials on the analysis, will be produced. 
 
 
-Data sources include points, shapefiles and TIF layers to create a raster stack. Details are provided in Gregr et al. (in prep). For distribution (i.e., as required by PNAS?), code is provided along with prepared data sources as rData files.  
-
 
 ## Status
-In-development
-
+Stablized. Last revision prior to re-submission focused on updating documentation, and clarifying the partial data pathway. 
 
 ## Contents
 Describe the contents of the repository. Are there multiple scripts or directories? What are there purpose and how do they relate to each other?
+
+The R code includes the following files:  
+*IDE_Main.R*: The control script that sources necessary functions and libraries, and controls the loading of the data. 
+
+*build_substrate.R*: The high level build work (function calling and result building) behind IDE_Main.R.   
+
+*substrate_functions.R*: Functions for data loading, data analysis, and result building.   
+
+*plot_functions.R*: Plotting functions.    
+
+*substrate_figures.RMD*: This Markdown script generates tables and plots from existing data objects in the environment. Some plots have supporting code chunks to prepare the summary data for plotting (e.g., scaling of the TSS) of the summarized data.   
+
+To run the Markdown script, Knitr needs to see the necessary data objects. As this entire project runs in the global environment, the most straightforward way to do this is to run the script from the console (>) as:   
+
+
 ### Subsections within contents
 Use subsections to describe the purpose of each script if warranted.
 
