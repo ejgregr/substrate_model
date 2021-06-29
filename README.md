@@ -31,48 +31,34 @@ Substrate observations were assembled in ArcGIS from field data collected by Fis
 
 We imported the ArcGIS raster stacks and used them to 1) estimate the model, and 2) interpolate it across the study area. To build the random forst model, we assigned raster values to each observations. This analytic data set is disributed with this script. The raster stacks contain proprietrary data, and are available on request from Fisheries and Oceans Canada. Details on the observations and predictors are provided in Gregr et al. (2021). The data to replicate the analysis are included as rData files.  
 
-Running the main script will produce an RMD file containing most of the results. Some functions seem fussy within RMD (the heatmaps) so these need to be pre-generated (main script) and pointed to by the RMD file. 
+Running the main script (IDE_Main.R) will produce an RMD file containing most of the results. Some functions seem fussy within RMD (the heatmaps) so these need to be pre-generated and pointed to by the RMD file. IDE_Main.R controls the loading or re-building of the analysis using flags set at the top of the script. The script is archived so that sourcing this script will load the source data, and re-build the analysis. This will take some time. File path and program constants are contained in ... Ensure the rData files are available and pathed correctly.
 
-Scripts:
-IDE_Main.R controls the loading or re-building of the analysis based on flags at the top of the script. This code is archived so that sourcing this script will load the source data, and re-build the analysis. This will take some time.
-
-Ensure the rData files are available and pathed correctly.
-
-Running the RMarkdown script using the following code snippet will run it so the environment is visible. An MS Word document file of tables and figures, including supplemental materials on the analysis, will be produced. 
-
+Running the RMarkdown script will create an MS Word document file of tables and figures, including supplemental materials on the analysis. To run the Markdown script, Knitr needs to see the necessary data objects. As this entire project runs in the global environment, the most straightforward way to do this is to run the script from the console (>) as:   
 
 
 ## Status
 Stablized. Last revision prior to re-submission focused on updating documentation, and clarifying the partial data pathway. 
 
 ## Contents
-Describe the contents of the repository. Are there multiple scripts or directories? What are there purpose and how do they relate to each other?
+The repository contains the R code needed to reproduce the analysis, the archived data sets needed for the analysis, and the substrate maps resulting from the analysis.
 
+### R code
 The R code includes the following files:  
 *IDE_Main.R*: The control script that sources necessary functions and libraries, and controls the loading of the data. 
-
 *build_substrate.R*: The high level build work (function calling and result building) behind IDE_Main.R.   
-
 *substrate_functions.R*: Functions for data loading, data analysis, and result building.   
-
 *plot_functions.R*: Plotting functions.    
-
 *substrate_figures.RMD*: This Markdown script generates tables and plots from existing data objects in the environment. Some plots have supporting code chunks to prepare the summary data for plotting (e.g., scaling of the TSS) of the summarized data.   
 
-To run the Markdown script, Knitr needs to see the necessary data objects. As this entire project runs in the global environment, the most straightforward way to do this is to run the script from the console (>) as:   
+### Data sets
+Subsections within contents
 
-
-### Subsections within contents
+### Substrate maps
 Use subsections to describe the purpose of each script if warranted.
 
 
 ## Methods
-What methods were used to achieve the purpose? This should be detailed as possible.
-
-Ensure 20 m and 100 m predictors are named consistently. Also the sign of the 100 m bathy is standarndized as positive depths. 
-
-ConfusionMatrix() was used for consistency of statistics. 
-
+Please see Gregr et al. (2021) for a detailed description of the source data, analytical methods, and results. 
 
 ## Requirements
 List the input data requirements or software requirements to successfully execute the code.
