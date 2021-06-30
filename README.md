@@ -44,11 +44,11 @@ The repository contains the R code needed to reproduce the analysis, the archive
 
 ### R code
 The R code includes the following files:  
-*IDE_Main.R*: The control script that sources necessary functions and libraries, and controls the loading of the data. 
-*build_substrate.R*: The high level build work (function calling and result building) behind IDE_Main.R.   
-*substrate_functions.R*: Functions for data loading, data analysis, and result building.   
-*plot_functions.R*: Plotting functions.    
-*substrate_figures.RMD*: This Markdown script generates tables and plots from existing data objects in the environment. Some plots have supporting code chunks to prepare the summary data for plotting (e.g., scaling of the TSS) of the summarized data.   
+*IDE_Main.R*: The control script that sources necessary functions and libraries, and controls the loading of the data and building the analysis. 
+*build_substrate.R*: A high level script that does most of the work (function calling and result building) for IDE_Main.R.   
+*substrate_functions.R*: Code for loading packages, defining constants (including file directories), and defining all necessary functions for data loading, data analysis, and result building.   
+*plot_functions.R*: Plotting functions for all the figures in the manuscript.   
+*substrate_figures.RMD*: This Markdown script generates tables and figures from existing data objects in the environment. Some plots have supporting code chunks to prepare the summary data for plotting (e.g., scaling of the TSS) of the summarized data.   
 
 ### Data sets
 Subsections within contents
