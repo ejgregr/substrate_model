@@ -13,7 +13,6 @@ __Version:__      R version 3.6.3 x64
 - [Summary](#summary)
 - [Status](#status)
 - [Contents and methods](#contents and methods)
-  + [Subsections within contents](#subsections-within-contents)
 - [Data management](#data management)
 - [Requirements](#requirements)
 - [Caveats](#caveats)
