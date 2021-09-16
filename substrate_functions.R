@@ -148,7 +148,7 @@ Results.Row <- function( testModel, testData, paired = F, mant = 3 ){
     "N"         = nrow( testData ),
     "Imbalance" = round( Imbal, mant ), 
     "OOB"       = if (paired == T ) 0 else round( testModel$prediction.error, mant ),
-    "TSS"       = TSS.Calc( y$table, TRUE ),
+    "TSS"       = TSS.Calc( y$table ),
     "TPR"       = round( sum( z$Sensitivity * z$Prevalence ), mant ),
     'TNR'       = round( sum( z$Specificity * z$Prevalence ), mant ),
     "Accuracy"  = round( as.numeric( y$overall[ 'Accuracy' ]), mant ),
@@ -177,7 +177,7 @@ Results.Row <- function( testModel, testData, paired = F, mant = 3 ){
 # Assumes: 4x4 matrix
 # Notes:   Correcting for chance success reduces the sample size on 
 #   the diagonal ... 
-TSS.Calc <- function( cTable, scaleOut = F ){
+TSS.Calc <- function( cTable ){
   x <- matrix( cTable, 4,4 )
 
   # Expected correct predictions by chance (diagonal)
@@ -192,12 +192,8 @@ TSS.Calc <- function( cTable, scaleOut = F ){
   R.star <- n.star - ( n.star^2/sum(x) )
   
   out <- round( sum(R) / sum(R.star), 3)
-  
-  if (scaleOut == T) 
-    return( (out+1)/2 )
-  else
-    return( out )
-    
+
+  return( out )
 }
 
 #------------------------------------------------------------------
@@ -328,7 +324,7 @@ Test.Sample.Size <- function( obs, howMany, part, theForm ){
 
 #---------------------------------------------------------------------------------------------
 # For the provided sample: 1) partition the data ranging from even prevalence to imbalance = NN;
-# 2) build an model with training data; 3) evaluate the model with testing partition.
+# 2) build a model with training data; 3) evaluate the model with testing partition.
 # Assumes: obs class attribute = BType4 with 4 classes.
 Test.Prevalence <- function( obs, N, part, theForm ){
   

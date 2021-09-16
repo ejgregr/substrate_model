@@ -258,7 +258,7 @@ if ( wtdrngr == T ) {
    #-- Done building ranger RF models. 
    
    endtime <- Sys.time()
-   cat( 'Wtd Model build time: ', difftime( starttime, endtime, units='mins' )[[1]], '\n\n' )
+   cat( 'Wtd Model build time (min): ', difftime( endtime, starttime, units='mins' )[[1]], '\n\n' )
    #last run for 1 iteration was 2.7 minutes.
    
    #--------------------------------------------
@@ -377,7 +377,7 @@ if ( nowtrngr == T ) {
    #-- Done building No Wt ranger RF models. 
    
    endtime <- Sys.time()
-   cat( 'Non-Wtd Model build time: ', difftime( starttime, endtime, units='mins' )[[1]], '\n\n' )
+   cat( 'Non-Wtd Model build time (min): ', difftime( endtime, starttime, units='mins' )[[1]], '\n\n' )
 
    #--------------------------------------------
    #-- SAVE the resulting models. Takes minutes - its a big file. 

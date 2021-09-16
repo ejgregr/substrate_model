@@ -36,10 +36,10 @@ mapplots   <- F
 #-- RData file names:
 data.files <- list(
   pts        = 'loaded_data_2020-11-19.RData',
-  modelsWtd  = 'rf_allModels_2020-11-19.RData',
-  buildRes   = 'buildResults_2020-11-19.RData',
-  modelsNoWt = 'nwrf_allModels_2020-11-19.RData',
-  buildResNW = 'nwbuildResults_2020-11-19.RData',
+  modelsWtd  = 'rf_allModels_2021-08-26.RData',
+  buildRes   = 'buildResults_2021-08-26.RData',
+  modelsNoWt = 'nwrf_allModels_2021-08-26.RData',
+  buildResNW = 'nwbuildResults_2021-08-26.RData',
   predMaps   = 'rasterMapObjects_2020-11-20.RData'
 )
 
@@ -47,7 +47,8 @@ data.files <- list(
 if (reloadpts == F){
 #-- Load existing observational data .. 
   load( file.path( model.dir, data.files[["pts"]] ))
-# point.data - All the point observations from ArcGIS. 
+  
+  # point.data - All the point observations from ArcGIS. 
 # obs.100mIV
 # obs.20mIV, dive.20mIV, cam.20mIV, ROV.20mIV
 # names.100m
@@ -121,16 +122,17 @@ depth.results <- Models.Across.Depths( test.regions )
 
 if (makeheat == T){
   
-  Heat.Build.Class.Stats( build.sum$build.results.ByClass, T, 'TPR', rev( pal.heat.10 ), 800, 600, 'black' )
+  Heat.Build.Class.Stats( build.sum$build.results.ByClass, T, 'Prod', rev( pal.heat.10 ), 800, 600, 'black' )
   Heat.Build.Class.Stats( build.sum$build.results.ByClass, T, 'TNR', rev( pal.heat.10 ), 800, 600, 'black' )
   Heat.Build.Class.Stats( build.sum$build.results.ByClass, T, 'User', rev( pal.heat.10 ), 800, 600, 'black' )
   
-  Heat.Build.Class.Stats( build.sum.nw$build.results.ByClass, F, 'TPR', rev( pal.heat.10 ), 800, 600, 'black' )
+  Heat.Build.Class.Stats( build.sum.nw$build.results.ByClass, F, 'Prod', rev( pal.heat.10 ), 800, 600, 'black' )
   Heat.Build.Class.Stats( build.sum.nw$build.results.ByClass, F, 'TNR', rev( pal.heat.10 ), 800, 600, 'black' )
   Heat.Build.Class.Stats( build.sum.nw$build.results.ByClass, F, 'User', rev( pal.heat.10 ), 800, 600, 'black' )
   
   Heat.Build.Var.Import( build.sum$build.results.VarImport, pal.heat.11, 1000, 600, 'black' )
 }
+
 
 #--------------------------------------------------------------
 #-- Regression to see what's driving the different metrics  ... 
@@ -142,6 +144,13 @@ if (makeheat == T){
 # a <- lm( TSS ~ Model + Region + Ribbon + N + Imbalance, data = depth.results )
 # summary(a)
 # anova( a )
+
+
+#--------------------------------------------------------------------------
+#-- Plot map prevalences (Fig. S3 from manuscript). 
+#   Not an inline process because of the data required ... 
+
+Plot.Pred.Map.Prevalence( map.prev, build.sum, pal.RMSM )
 
 
 #--------------------------------------------------------------------------
@@ -164,20 +173,6 @@ row.names( IDE.results.wtd ) <- NULL
 # IDE.results.trm  <- IDS.Evaluation( 'trm' )
 IDE.results.nowt <- IDS.Evaluation( 'nwrf' )
 row.names( IDE.results.nowt ) <- NULL
-
-
-#-------------------------------------------------------------
-#---- Make some plots with the above ... but so many plots ... 
-#---- USES the data stucture currently built for Table S2 in rmd file.
-
-# y <- x[ x$Stat == 'TPR', c('Model', 'Region', 'Hard', 'Mixed', 'Sand', 'Mud')]
-# a <- Plot.ClassStats.IDE( y, 'Accuracy', pal.cb3b, sz=30, lx=0, ly=0 )
-#   
-# y <- x[ x$Stat == 'TNR', c('Model', 'Region', 'Hard', 'Mixed', 'Sand', 'Mud')]
-# b <- Plot.ClassStats.IDE( y, 'Specificity', pal.cb3b, sz=30, lx=0, ly=0 )
-# 
-# y <- x[ x$Stat == 'User', c('Model', 'Region', 'Hard', 'Mixed', 'Sand', 'Mud')]
-# c <- Plot.ClassStats.IDE( y, 'Reliability', pal.cb3b, sz=30, lx=0, ly=0 )
 
 
 #-------------------------------------------------------------
@@ -205,15 +200,20 @@ IDE.depths <- rbind(
 row.names( IDE.depths ) <- NULL
 
 
-
 # Examine the number of pixels, and NA proportions in the predicted rasters
-# Elemetns of map.prev created by Predict.Surface()
+# Elements of map.prev created by Predict.Surface()
 
 names( map.prev )
 
 x <- as.vector( map.prev$Coast1 )
 length( x ) 
 sum( is.na(x))
+
+x <- as.vector(map.prev$QCS1)
+length( x ) 
+sum( is.na(x))
+
+
 
 x <- as.vector( map.prev$NCC1 )
 length( x )
@@ -222,7 +222,6 @@ sum( is.na(x))
 # compare source attrib ... 
 map.prev$Coast1
 map.prev$HG1
-
 
 
 #-- FIN.

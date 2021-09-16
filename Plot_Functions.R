@@ -66,8 +66,7 @@ pal.cb4 <- brewer.pal(4, 'Dark2' )
 pal.heat.10 <- brewer.pal(10, "RdYlBu")
 pal.heat.11 <- brewer.pal(11, "RdYlBu")
 
-# show.pal( pal.cb8 )
-# show.pal( pal.cb3b )
+#show.pal( pal.cb3b )
 
 #-- Old palettes (Coles and PNW) dropped in favour of CB above.
 # pal.cole <- c("#c6c6c6", "#c2f3f9", "#7fc9d8")
@@ -162,7 +161,7 @@ Heat.Build.Var.Import <- function( df, pal, w = 800, h = 600, txtCol ) {
 #-------------- FACETED Build Statistics --------------------
 
 #-- Class prevalence of obs and pred during build, faceted by region.
-# Source: csv built by build.summary(). 
+# Called from RMD file which does lots of data prep using the build summaries (wtd and non-wtd). 
 # NOTE: the order of the Obs/Pred rows is irrelevant because melted here. 
 Plot.Obs.Pred.Prevalence.Build <- function( dat.table, apal, sz=15, lx=0, ly=0 ){
   
@@ -225,7 +224,7 @@ Plot.Stat.By.Depth.For.Regions <- function( dat.table, stat, apal){
     facet_grid(. ~ Region ) +
     scale_fill_manual(values = apal) +
     theme_bw() +
-    theme(  text = element_text(size=15),
+    theme(  text = element_text(size=25),
             axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.4), 
             
             # formatting the facet strip
@@ -240,8 +239,7 @@ Plot.Stats.By.IDS.For.Regions <- function( df, apal, sz=20, lx=0, ly=0 ){
   #  x <- df[, c( 'Region', 'IDS', 'TSS', 'Accuracy', 'TNRWtd' )]
   x <- df[, c( 'Region', 'IDS', 'TSS', 'Accuracy', 'TNR' )]
   
-  # Adjust for different random baselines
-  x$TSS <- x$TSS - 0.5
+  # Adjust Accuracy and TNR for for different random baselines
   x$Accuracy <- x$Accuracy - 0.25
   x$TNR <- x$TNR - 0.75
   
@@ -303,14 +301,14 @@ Plot.Obs.By.IDS.For.Regions <- function( df, apal, sz = 20, lx=0, ly=0 ){
 }
 
 #-------------------------------
-#-- Map prevalence compared to model test prevalence
+#-- Map prevalence compared to model test prevalence (Fig S3 - June 14 2021)
 #rm('maprev', 'bs', 'a', 'b', 'c', 'y')
 Plot.Pred.Map.Prevalence <- function( maprev, bs, apal, sz=20){
 # TAKES: map.prev: Map prevalence saved as part of study area predictions
 #        bs: Summary of the build prevalences
   
   a <- rbind( maprev$Coast2, maprev$HG2, maprev$NCC2, maprev$WCVI2, maprev$QCS2, maprev$SOG2 )
-  colnames( a ) <- c('Hard','Mixed','Sand','Mud')
+  colnames( a ) <- c('Rock','Mixed','Sand','Mud')
   a <- a/100
   b <- factor( c('Coast','HG','NCC','WCVI','QCS','SOG'), 
                levels = c('Coast','HG','NCC','WCVI','QCS','SOG') )
@@ -322,7 +320,10 @@ Plot.Pred.Map.Prevalence <- function( maprev, bs, apal, sz=20){
   b <- bs$build.results.ClassPrev[ bs$build.results.ClassPrev$Stat == 'Pred',]
   b <- cbind( b[ , c(1,2)], 
               b[ , c(-1,-2)] / rowSums(b[ , c(-1,-2)]) )
-
+  
+  # Added 2021/06/14 along with 'Rock' above to standarize all figures in ms. 
+  colnames(b) <- c('Stat','Region','Rock',"Mixed",'Sand',"Mud")
+  
   c <- rbind(a, b)
   levels(c$Stat) <- c('Map','Pred', 'Points')
   c$Stat[ c$Stat == 'Pred'] <- 'Points'
