@@ -1,6 +1,6 @@
 # Random Forest Substrate Model at Two Resolutions
 
-__Created:__      2020/02/20 Forked from earlier version of the project created by Cole Field
+__Created:__      2020/02/20 Forked from earlier version of the project created by Cole Fields
 __Main author:__  Edward Gregr  
 __Affiliation:__  Fisheries and Oceans Canada (DFO)   
 __Group:__        SciTech Environmental Consulting   
@@ -12,8 +12,8 @@ __Version:__      R version 3.6.3 x64
 - [Objective](#objective)
 - [Summary](#summary)
 - [Status](#status)
-- [Contents and methods](#contents and methods)
-- [Data management](#data management)
+- [Contents and methods](#contents-and-methods)
+- [Data management](#data-management)
 - [Requirements](#requirements)
 - [Caveats](#caveats)
 - [Uncertainty](#uncertainty)
@@ -23,7 +23,7 @@ __Version:__      R version 3.6.3 x64
 ## Objective
 This project was created to develop coast-wide predictions of bottom type for Pacific Canada at two resolutions (20 and 100 m) for all Pacific Canadian waters. The 100 m model covers the entire shelf area, the 20 m models extend from the high water line to 50 m depth, and are constructed for 5 different subregions. The predictive performance of the models is tested using independent data sets. The work is presented in Gregr et al. 2021. 
 
-Gregr, EJ, Haggarty D, Davies, S, Field, C, and Lessard, J. 2021. Comprehensive marine substrate classification applied to Canada’s Pacific shelf. PLOS One. 
+Gregr, EJ, Haggarty D, Davies, S, Fields, C, and Lessard, J. 2021. Comprehensive marine substrate classification applied to Canada’s Pacific shelf. PLOS One. 
 
 ## Summary   
 
