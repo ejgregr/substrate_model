@@ -1,16 +1,11 @@
 #*******************************************************************************
-# Script Name: 	  Plots
+# Script Name: 	  plot_functions
 # Script Purpose:	Generate a series of plots summarizing Random Forest results
-# Script Author: 	Cole Fields
-# Script Date: 	  Jan. 28, 2019
+# Script Author: 	Edward Gregr adapted from earlier version by Cole Fields
+# Script Date: 	  30 March 2020
 # R Version:	    R version 3.5.2 (2018-12-20)
 # R Packages:	    rgdal, ggplot2, raster, sp, magrittr, dplyr, caret, binr, tidyr, reshape2
 #*******************************************************************************
-
-# Adapted for substrate paper 
-# Edward Gregr,
-# 30 March 2020
-
 # Much of this code originally written to address 1-step 2-step question. That's why 
 # some of the proportion code scrapes rasters. 
 # THe code has been adapted to look at proportions, statistics by class and depth, faceted across regions. 
@@ -23,19 +18,6 @@
 #   - Contingency table as scatter plot - cool but hard to interpret without marginal values. 
 #       Table itself seems better. 
 #*******************************************************************************
-
-#-------------------------------------------------------------------------------
-# FUNCTIONS
-# Revisions (EJG):
-# Model building results ... 
-# - data frame construction removed - they are built in the summary script
-#   Build.Plots() : Build the heat maps for the build results.
-#   Plot.Obs.Pred.Prevalence.Build() 
-#   Plot.Stat.By.Depth.For.Regions() : User-specified statistic is plotted
-#   Plot.Class.Stats.For.Regions() : User and Producer accuracies
-# For the IDE ... 
-#   Plot.Stat.By.IDS.For.Regions() : Plots selected integrated metrics by IDS and region
-#-------------------------------------------------------------------------------
 
 #===================== PLAYING WITH PALETTES =============================
 # 2020/06/19: Standardized on some CB-friendly pallettes
@@ -67,10 +49,6 @@ pal.heat.10 <- brewer.pal(10, "RdYlBu")
 pal.heat.11 <- brewer.pal(11, "RdYlBu")
 
 #show.pal( pal.cb3b )
-
-#-- Old palettes (Coles and PNW) dropped in favour of CB above.
-# pal.cole <- c("#c6c6c6", "#c2f3f9", "#7fc9d8")
-
 
 #-------------------------------
 # Display the specified palette.
@@ -300,6 +278,7 @@ Plot.Obs.By.IDS.For.Regions <- function( df, apal, sz = 20, lx=0, ly=0 ){
   return( a )
 }
 
+
 #-------------------------------
 #-- Map prevalence compared to model test prevalence (Fig S3 - June 14 2021)
 #rm('maprev', 'bs', 'a', 'b', 'c', 'y')
@@ -307,7 +286,7 @@ Plot.Pred.Map.Prevalence <- function( maprev, bs, apal, sz=20){
 # TAKES: map.prev: Map prevalence saved as part of study area predictions
 #        bs: Summary of the build prevalences
   
-  a <- rbind( maprev$Coast2, maprev$HG2, maprev$NCC2, maprev$WCVI2, maprev$QCS2, maprev$SOG2 )
+  a <- rbind( maprev$Coastwt2, maprev$HGwt2, maprev$NCCwt2, maprev$WCVIwt2, maprev$QCSwt2, maprev$SOGwt2 )
   colnames( a ) <- c('Rock','Mixed','Sand','Mud')
   a <- a/100
   b <- factor( c('Coast','HG','NCC','WCVI','QCS','SOG'), 

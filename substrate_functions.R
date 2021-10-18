@@ -35,13 +35,14 @@ lapply(required.packages, require, character.only = TRUE)
 
 #=========================== Data sources and constants =====================================
 
-#-- As per Cole's reporting code, set an output directory and initiate the log file.
-#       Directory will be created if doesn't exist; file will be overwritten if it does.
-results.dir   <- 'C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results'
-model.dir     <- 'C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Models'
-predictor.dir <- 'C:/Data/SpaceData/Substrate2019/Predictors'
-source.dir    <- 'C:/Data/SpaceData/Substrate2019'
-raster.dir    <- 'C:/Users/Edward/Dropbox/DFO Job/Substrate2019/Results/Rasters'
+#-- Set directories for source data and outputs. 
+#   Directory will be created if doesn't exist; file will be overwritten if it does.
+#   All directories pointed to Git repository for distribution
+source.dir    <- 'C:/Data/Git/substrate_model/Data'
+predictor.dir <- 'C:/Data/SpaceData/substrate2019/Predictors'
+model.dir     <- 'C:/Data/Git/substrate_model/Data'
+results.dir   <- 'C:/Data/Git/substrate_model/Results'
+raster.dir    <- 'C:/Data/Git/substrate_model/Results'
 
 # Sources of all the necessary spatial data including regions and observations.
 # Data last updated May 30 2020. 
@@ -927,4 +928,4 @@ Model.Fit.IDS.By.Depth <- function( idsName, regName, mant = 3 ){
 }
 
 
-### fin.
+### Fin.

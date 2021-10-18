@@ -1,7 +1,7 @@
 #*******************************************************************************
 # Script:  IDE_main.R
 # Created: January 2020. EJG
-# Updated: 2020/10/06 EJG (updates now intermittently detailed in README.md)
+# Updated: 2020/10/06 EJG
 #
 # This script sources the necessary libraries and functions, then uses flags to 
 # either loads results from saved Rdata files, or import and analyse raw data. 
@@ -26,8 +26,8 @@ source( "Plot_Functions.R" )
 
 # Parameters to the re-build ... 
 reloadpts  <- F
-wtdrngr    <- F
-nowtrngr   <- F
+wtdrngr    <- T
+nowtrngr   <- T
 makeheat   <- F
 mapplots   <- F
 
@@ -36,9 +36,9 @@ mapplots   <- F
 #-- RData file names:
 data.files <- list(
   pts        = 'loaded_data_2020-11-19.RData',
-  modelsWtd  = 'rf_allModels_2021-08-26.RData',
+  modelsWtd  = '',
   buildRes   = 'buildResults_2021-08-26.RData',
-  modelsNoWt = 'nwrf_allModels_2021-08-26.RData',
+  modelsNoWt = '',
   buildResNW = 'nwbuildResults_2021-08-26.RData',
   predMaps   = 'rasterMapObjects_2020-11-20.RData'
 )
@@ -48,10 +48,8 @@ if (reloadpts == F){
 #-- Load existing observational data .. 
   load( file.path( model.dir, data.files[["pts"]] ))
   
-  # point.data - All the point observations from ArcGIS. 
-# obs.100mIV
-# obs.20mIV, dive.20mIV, cam.20mIV, ROV.20mIV
-# names.100m
+# point.data - All the point observations from ArcGIS. 
+# obs.100mIV, obs.20mIV, dive.20mIV, cam.20mIV, ROV.20mIV, names.100m
 }
 
 # 2): RF Models and Build results. 
@@ -134,25 +132,6 @@ if (makeheat == T){
 }
 
 
-#--------------------------------------------------------------
-#-- Regression to see what's driving the different metrics  ... 
-#   Have tested with/without N and Imbalance. No change. 
-#   REPLACE TSS with other metrics to create the results 
-
-# names(depth.results)
-# cor( depth.results[, -c(1:3)] )
-# a <- lm( TSS ~ Model + Region + Ribbon + N + Imbalance, data = depth.results )
-# summary(a)
-# anova( a )
-
-
-#--------------------------------------------------------------------------
-#-- Plot map prevalences (Fig. S3 from manuscript). 
-#   Not an inline process because of the data required ... 
-
-Plot.Pred.Map.Prevalence( map.prev, build.sum, pal.RMSM )
-
-
 #--------------------------------------------------------------------------
 #-- Part 5 - Independent Data Evaluation
 # Comparisons include:
@@ -213,15 +192,9 @@ x <- as.vector(map.prev$QCS1)
 length( x ) 
 sum( is.na(x))
 
-
-
 x <- as.vector( map.prev$NCC1 )
 length( x )
 sum( is.na(x))
-
-# compare source attrib ... 
-map.prev$Coast1
-map.prev$HG1
 
 
 #-- FIN.

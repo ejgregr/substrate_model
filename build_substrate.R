@@ -395,19 +395,17 @@ if ( nowtrngr == T ) {
 }
 # End No Wt Ranger run and save. 
 
-#----------------------------------------------------------
-#-- PART 2c: Trimmed weighted Ranger models for comparison.
-# Added 2020/08/10; dropped 20920/10/10.
-
 
 #-------------------------------------------
 #  Build model predictions. TAKES HOURS!
-#  Would be useful to separate out generation of prevalence from map plotting?
-#  Not so much because the prediction takes most of the time. 
+#  2020/12/17: Each region gets 2 list components: first is the predicted raster, 
+#     2nd is the associated table of class proportions (See Predict.Surface()). 
+#  No sense separating generation of prevalence from map plotting as plotting takes most of the time.
 
-# 2020/12/17: Noting that each region gets 2 list components, 
-#  first is the predicted raster, 2nd is the associated table of class proportions (See Predict.Surface()). 
-
+# 2021/09/11: Cleaning up the map generation and imbalance calculation. 
+# Plots of UNWTD predictions only required for Coast, WCVI, and SOG.
+# Predict.Surface() returns an unlabled list for each predicted product, 
+#     e.g., Coastwt, gets a 1 appended for the object and a 2 for the prevalence list.
 
 if ( mapplots == T ) {
    
@@ -417,85 +415,90 @@ if ( mapplots == T ) {
    #- Somewhere to put the data ... 
    map.prev <- list()
    
-   #- coastwide 
-   a <- 'Coast'
-   b <- rf.region.Coast
+   names( map.prev)
+   
+   #- Coastwide first. Has its own predictors. 
    a.stack <- Load.Predictors( paste0( predictor.dir, '/Coastwide' ) )
    
-   # standardize var names and bathymetry sign
+   # standardize bathy name and sign
    names(a.stack)[1] <- 'bathy'
    a.stack$bathy <- a.stack$bathy * -1
    
-   y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
-   map.prev <- c(map.prev, 'Coast' = y )
+   a <- 'Coast'
+   
+   #wtd model ...
+   b <- rf.region.Coast
+   y <- Predict.Surface( a.stack, b, raster.dir, paste0(a,'_wt'), pal.RMSM )
+   map.prev <- c(map.prev, 'Coastwt' = y )
+   
+   # no wt model ...
+   b <- nwrf.region.Coast
+   y <- Predict.Surface( a.stack, b, raster.dir, paste0(a,'_nw'), pal.RMSM )
+   map.prev <- c(map.prev, 'Coastnw' = y )
+   
+   
+   # Regional predictions
+   # Each region needs to load its own predictors. 
    
    #- HG
    a <- 'HG'
-   b <- rf.region.HG
    a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
    a.stack <- Rename.20m.Preds( a.stack )
-      y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
-   map.prev <- c(map.prev, 'HG' = y )
+   
+   b <- rf.region.HG
+   y <- Predict.Surface( a.stack, b, raster.dir, paste0(a,'_wt'), pal.RMSM )
+   map.prev <- c(map.prev, 'HGwt' = y )
    
    #- NCC
    a <- 'NCC'
+   a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+   a.stack <- Rename.20m.Preds( a.stack )
+
    b <- rf.region.NCC
-   a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
-   a.stack <- Rename.20m.Preds( a.stack )
-   y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
-   map.prev <- c(map.prev, 'NCC' = y )
+   y <- Predict.Surface( a.stack, b, raster.dir, paste0(a,'_wt'), pal.RMSM )
+   map.prev <- c(map.prev, 'NCCwt' = y )
    
-   #- WCVI #1 - wtd
+   #- WCVI
    a <- 'WCVI'
-   b <- rf.region.WCVI
    a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
    a.stack <- Rename.20m.Preds( a.stack )
-   y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
-   map.prev <- c(map.prev, 'WCVI' = y )
+   
+   b <- rf.region.WCVI
+   y <- Predict.Surface( a.stack, b, raster.dir, paste0(a,'_wt'), pal.RMSM )
+   map.prev <- c(map.prev, 'WCVIwt' = y )
+   
+   b <- nwrf.region.WCVI
+   y <- Predict.Surface( a.stack, b, raster.dir, paste0(a,'_nw'), pal.RMSM )
+   map.prev <- c(map.prev, 'WCVInw' = y )
    
    #- QCS
    a <- 'QCS'
+   a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
+   a.stack <- Rename.20m.Preds( a.stack )
+   
    b <- rf.region.QCS
+   y <- Predict.Surface( a.stack, b, raster.dir, paste0(a,'_wt'), pal.RMSM )
+   map.prev <- c(map.prev, 'QCSwt' = y )
+
+   #- SOG
+   a <- 'SOG'
    a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
    a.stack <- Rename.20m.Preds( a.stack )
-   y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
-   map.prev <- c(map.prev, 'QCS' = y )
-   
-   #- SOG #1 - wtd
-   a <- 'SOG'
+
    b <- rf.region.SOG
-   a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
-   a.stack <- Rename.20m.Preds( a.stack )
-   y <- Predict.Surface( a.stack, b, raster.dir, a, pal.RMSM )
-   map.prev <- c(map.prev, 'SOG' = y )
+   y <- Predict.Surface( a.stack, b, raster.dir, paste0(a,'_wt'), pal.RMSM )
+   map.prev <- c(map.prev, 'SOGwt' = y )
    
-   
-   rm(a.stack)
-   #- WCVI #2 - No wts
-   a <- 'WCVI'
-   b <- nwrf.region.WCVI
-   a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
-   a.stack <- Rename.20m.Preds( a.stack )
-   y <- Predict.Surface( a.stack, b, raster.dir, paste0( a, '_noWt_'), pal.RMSM )
-   map.prev <- c(map.prev, 'WCVI' = y )
-   
-   rm(a.stack)
-   #- SOG #2 - No wts
-   a <- 'SOG'
    b <- nwrf.region.SOG
-   a.stack <- Load.Predictors( paste0( predictor.dir, '/', a ) )
-   a.stack <- Rename.20m.Preds( a.stack )
-   y <- Predict.Surface( a.stack, b, raster.dir, paste0( a, '_noWt_'), pal.RMSM )
-   map.prev <- c(map.prev, 'SOG' = y )
+   y <- Predict.Surface( a.stack, b, raster.dir, paste0(a,'_nw'), pal.RMSM )
+   map.prev <- c(map.prev, 'SOGnw' = y )
+
    
-   
-      
-   cat( 'Total map plotting time: ', difftime( starttime, endtime, units='mins' )[[1]], '\n\n' )
+   endtime <- Sys.time()  
+   cat( 'Total map plotting time: ', difftime( endtime, starttime, units='hours' )[[1]], '\n\n' )
    
    #-- SAVE the prevalence and the predicted objects ... 
-   
-   #Build a date stamp ... 
-   endtime <- Sys.time()
+   # Build a date stamp ... 
    x <- substr( endtime, 1, 10)
    
    save( map.prev,
